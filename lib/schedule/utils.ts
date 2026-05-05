@@ -61,3 +61,15 @@ export function getPastWeekStarts(n: number): string[] {
 export function isTodayOrFuture(dateKey: string): boolean {
   return dateKey >= toDateKey();
 }
+
+/**
+ * Given a day name (e.g. "Miercoles") and the ISO date of the week's Monday,
+ * returns the ISO date key for that day in that week.
+ */
+export function dayNameToDateKey(dayName: string, weekStart: string): string {
+  const idx = DAYS.indexOf(dayName as DayName);
+  if (idx === -1) return weekStart;
+  const d = new Date(weekStart + 'T00:00:00');
+  d.setDate(d.getDate() + idx);
+  return toDateKey(d);
+}

@@ -4,11 +4,14 @@ import DayCard from './DayCard';
 import { DAYS } from '@/lib/schedule/data';
 import type { ScheduleSession, SessionStatus } from '@/lib/schedule/types';
 
+interface SessionMeta { status: SessionStatus | null; rpe?: number | null; hasNote?: boolean }
+
 interface Props {
   schedule: Record<string, ScheduleSession[]>;
   todayName: string;
   hiddenTypes: Set<string>;
   sessionStatuses: Record<string, SessionStatus | null>;
+  sessionMetas?: Record<string, SessionMeta>;
   onSessionClick: (s: ScheduleSession) => void;
 }
 
@@ -17,6 +20,7 @@ export default function WeekGrid({
   todayName,
   hiddenTypes,
   sessionStatuses,
+  sessionMetas,
   onSessionClick,
 }: Props) {
   return (
@@ -29,6 +33,7 @@ export default function WeekGrid({
           sessions={schedule[day] ?? []}
           hiddenTypes={hiddenTypes}
           sessionStatuses={sessionStatuses}
+          sessionMetas={sessionMetas}
           onSessionClick={onSessionClick}
         />
       ))}

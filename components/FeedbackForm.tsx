@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { DailyFeedback, PlanId } from '@/lib/schedule/types';
 
 interface Props {
@@ -26,6 +26,16 @@ export default function FeedbackForm({ initial, currentPlan, onSave }: Props) {
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Sync form when Supabase data arrives after initial render
+  useEffect(() => {
+    if (!initial) return;
+    setEnergy(initial.energy ?? 3);
+    setPain(initial.pain ?? 0);
+    setSleep(initial.sleep_hours ?? 7);
+    setFatigue(initial.fatigue ?? 3);
+    setNotes(initial.notes ?? '');
+  }, [initial]);
 
   const tips = getSuggestions(energy, pain, sleep);
 

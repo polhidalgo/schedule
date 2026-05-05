@@ -18,8 +18,8 @@ import MobileDayView from '@/components/MobileDayView';
 import MobileWeekOverview from '@/components/MobileWeekOverview';
 import PlanningChat from '@/components/PlanningChat';
 import { createClient } from '@/lib/supabase/client';
-import { getSessionsByPlan } from '@/lib/schedule/data';
-import { todayDayName, toDateKey, getWeekStart, getGiNogiVariant } from '@/lib/schedule/utils';
+import { getSessionsByPlan, TYPES } from '@/lib/schedule/data';
+import { todayDayName, toDateKey, getWeekStart, getGiNogiVariant, dayNameToDateKey } from '@/lib/schedule/utils';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type {
   PlanId, GiNogiVariant, ScheduleSession, SessionStatus,
@@ -58,8 +58,15 @@ export default function WeekPage() {
   const todaySessions = schedule[today] ?? [];
   const mobileSessions = schedule[mobileDay] ?? [];
 
+  // Enriched map: status + rpe + hasNote per session_id
+  const metaMap: Record<string, { status: SessionStatus | null; rpe?: number | null; hasNote?: boolean }> = {};
+  sessionLogs.forEach((l) => {
+    metaMap[l.session_id] = { status: l.status ?? null, rpe: l.rpe, hasNote: !!l.note };
+  });
+
+  // Simple status-only map for components that only need status
   const statusMap: Record<string, SessionStatus | null> = {};
-  sessionLogs.forEach((l) => { statusMap[l.session_id] = l.status ?? null; });
+  Object.entries(metaMap).forEach(([id, m]) => { statusMap[id] = m.status; });
 
   const selectedLog = sessionLogs.find((l) => l.session_id === selectedSession?.id) ?? null;
 
@@ -154,12 +161,14 @@ export default function WeekPage() {
     if (!selectedSession) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    // Use the actual date of the session's day in this week, not always today
+    const sessionDate = dayNameToDateKey(selectedSession.day_name, weekStart);
     if (!update.status) {
       await supabase.from('training_logs').delete()
-        .eq('user_id', user.id).eq('date', todayKey).eq('session_id', selectedSession.id);
+        .eq('user_id', user.id).eq('date', sessionDate).eq('session_id', selectedSession.id);
     } else {
       await supabase.from('training_logs').upsert(
-        { user_id: user.id, date: todayKey, session_id: selectedSession.id, ...update },
+        { user_id: user.id, date: sessionDate, session_id: selectedSession.id, ...update },
         { onConflict: 'user_id,date,session_id' }
       );
     }
@@ -193,7 +202,7 @@ export default function WeekPage() {
 
   // ── Shared props ──────────────────────────────────────────────────────────
   const sharedProps = {
-    plan, variant, hiddenTypes, statusMap, streak, weekSessionCounts,
+    plan, variant, hiddenTypes, statusMap, metaMap, streak, weekSessionCounts,
     schedule, today, todaySessions, todayFeedback, feedbackHistory, allLogs,
     handlePlanChange, handleVariantChange, toggleType,
     handleSessionSave, handleFeedbackSave, handleEventSave,
@@ -231,7 +240,7 @@ export default function WeekPage() {
 // Desktop Layout (unchanged from original)
 // ─────────────────────────────────────────────────────────────────────────────
 function DesktopLayout({
-  plan, variant, hiddenTypes, statusMap, streak, weekSessionCounts,
+  plan, variant, hiddenTypes, statusMap, metaMap, streak, weekSessionCounts,
   schedule, today, todaySessions, todayFeedback, feedbackHistory, allLogs,
   handlePlanChange, handleVariantChange, toggleType,
   handleFeedbackSave, handleEventSave, setSelectedSession,
@@ -255,6 +264,7 @@ function DesktopLayout({
           todayName={today}
           hiddenTypes={hiddenTypes}
           sessionStatuses={statusMap}
+          sessionMetas={metaMap}
           onSessionClick={setSelectedSession}
         />
 
@@ -269,7 +279,9 @@ function DesktopLayout({
               <h2>Esta semana</h2>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {Object.entries(weekSessionCounts).map(([t, n]) => (
-                  <span key={t} className="summary-chip">{t} ×{n}</span>
+                  <span key={t} className="summary-chip" style={{ color: TYPES[t]?.color }}>
+                    {TYPES[t]?.label ?? t} ×{n}
+                  </span>
                 ))}
               </div>
             </div>
@@ -319,7 +331,7 @@ function DesktopLayout({
 // Mobile Layout
 // ─────────────────────────────────────────────────────────────────────────────
 function MobileLayout({
-  plan, variant, hiddenTypes, statusMap, streak, weekSessionCounts,
+  plan, variant, hiddenTypes, statusMap, metaMap, streak, weekSessionCounts,
   schedule, today, todayFeedback, feedbackHistory, allLogs,
   handlePlanChange, handleVariantChange, toggleType,
   handleFeedbackSave, handleEventSave, setSelectedSession,
@@ -350,6 +362,7 @@ function MobileLayout({
               sessions={mobileSessions}
               hiddenTypes={hiddenTypes}
               sessionStatuses={statusMap}
+              sessionMetas={metaMap}
               onSessionClick={setSelectedSession}
             />
           </>
@@ -382,7 +395,9 @@ function MobileLayout({
                 <h2>Esta semana</h2>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {Object.entries(weekSessionCounts).map(([t, n]) => (
-                    <span key={t} className="summary-chip">{t} ×{n}</span>
+                    <span key={t} className="summary-chip" style={{ color: TYPES[t]?.color }}>
+                      {TYPES[t]?.label ?? t} ×{n}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -435,11 +450,14 @@ function MobileLayout({
 // ─────────────────────────────────────────────────────────────────────────────
 // Prop types
 // ─────────────────────────────────────────────────────────────────────────────
+interface SessionMeta { status: SessionStatus | null; rpe?: number | null; hasNote?: boolean }
+
 interface SharedProps {
   plan: PlanId;
   variant: GiNogiVariant;
   hiddenTypes: Set<string>;
   statusMap: Record<string, SessionStatus | null>;
+  metaMap: Record<string, SessionMeta>;
   streak: number;
   weekSessionCounts: Record<string, number>;
   schedule: Record<string, ScheduleSession[]>;
