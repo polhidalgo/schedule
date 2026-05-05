@@ -33,6 +33,8 @@ export interface ScheduleSession {
   note?: string;
   is_optional?: boolean;
   sort_order?: number;
+  /** If set, session only shows on that Gi/NoGi variant week. Null/undefined = always show. */
+  week_variant?: GiNogiVariant | null;
 }
 
 export interface WeekConfig {

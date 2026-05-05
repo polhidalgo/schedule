@@ -52,7 +52,7 @@ export default function WeekPage() {
   const [allLogs, setAllLogs] = useState<TrainingLog[]>([]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const schedule = getSessionsByPlan(plan);
+  const schedule = getSessionsByPlan(plan, variant);
   const todaySessions = schedule[today] ?? [];
   const mobileSessions = schedule[mobileDay] ?? [];
 

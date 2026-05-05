@@ -16,7 +16,7 @@ export async function POST(request: Request) {
       variant: GiNogiVariant;
     };
 
-    const schedule = getSessionsByPlan(plan);
+    const schedule = getSessionsByPlan(plan, variant);
     // Compute weekday index numerically to avoid locale/accent issues with toLocaleDateString
     const idx = (new Date(event.date + 'T12:00:00').getDay() + 6) % 7;
     const dayName = DAYS[idx];

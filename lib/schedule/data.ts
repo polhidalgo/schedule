@@ -1,4 +1,4 @@
-import type { SessionTypeInfo, ScheduleSession, PlanId } from './types';
+import type { SessionTypeInfo, ScheduleSession, PlanId, GiNogiVariant } from './types';
 
 export const TYPES: Record<string, SessionTypeInfo> = {
   nogi:         { label: 'NoGi',            color: '#3b82f6' },
@@ -54,7 +54,8 @@ const PLAN_A_SESSIONS: ScheduleSession[] = [
   { id:'A-thu-work',       plan:'A', day_name:'Jueves', start:'08:13', end:'16:30', title:'Trabajo POSWorks', type:'work', sort_order:2 },
   { id:'A-thu-commute2',   plan:'A', day_name:'Jueves', start:'16:40', end:'17:30', title:'Bus directo al gym', type:'commute', location:'Cooper Plains -> Woolloongabba', note:'DOBLE day clave. Lleva snack para entre sesiones.', sort_order:3 },
   { id:'A-thu-nogi-int',   plan:'A', day_name:'Jueves', start:'17:40', end:'19:00', title:'NoGi Intermediate', type:'nogi', location:'Arte Suave', note:'DOBLE sesion 1. Alternativa solapada: BJJ Fundamentals 17:40-19.', sort_order:4 },
-  { id:'A-thu-wrestling',  plan:'A', day_name:'Jueves', start:'19:00', end:'20:45', title:'Wrestling (alt NoGi/Gi)', type:'wrestling', location:'Arte Suave', note:'DOBLE sesion 2. Alternativa solapada: BJJ Advanced 19-20:30.', sort_order:5 },
+  { id:'A-thu-wrestling',  plan:'A', day_name:'Jueves', start:'19:00', end:'20:45', title:'Wrestling', type:'wrestling', location:'Arte Suave', note:'DOBLE sesion 2 — Semana NoGi.', week_variant:'nogi', sort_order:5 },
+  { id:'A-thu-bjj-adv',    plan:'A', day_name:'Jueves', start:'19:00', end:'20:30', title:'BJJ Advanced (Gi)', type:'gi', location:'Arte Suave', note:'DOBLE sesion 2 — Semana Gi.', week_variant:'gi', sort_order:5 },
   { id:'A-thu-meal',       plan:'A', day_name:'Jueves', start:'21:30', end:'22:30', title:'Cena (meal prep listo)', type:'meal', note:'Cena preparada del domingo. No cocinar hoy.', sort_order:6 },
 
   // Viernes
@@ -73,7 +74,8 @@ const PLAN_A_SESSIONS: ScheduleSession[] = [
   { id:'A-sat-recovery', plan:'A', day_name:'Sabado', start:'15:00', end:'17:00', title:'Recovery (estiramiento, sauna, paseo)', type:'recovery', sort_order:4 },
 
   // Domingo
-  { id:'A-sun-pos',      plan:'A', day_name:'Domingo', start:'09:00', end:'10:00', title:'Positional (opcional, alt NoGi/Gi)', type:'nogi', location:'Arte Suave', note:'OPCIONAL. Tipo varia segun semana.', is_optional:true, sort_order:1 },
+  { id:'A-sun-pos-nogi',  plan:'A', day_name:'Domingo', start:'09:00', end:'10:00', title:'Positional NoGi (opcional)', type:'nogi', location:'Arte Suave', note:'OPCIONAL — Semana NoGi.', is_optional:true, week_variant:'nogi', sort_order:1 },
+  { id:'A-sun-pos-gi',   plan:'A', day_name:'Domingo', start:'09:00', end:'10:00', title:'Positional Gi (opcional)', type:'gi', location:'Arte Suave', note:'OPCIONAL — Semana Gi.', is_optional:true, week_variant:'gi', sort_order:1 },
   { id:'A-sun-open',     plan:'A', day_name:'Domingo', start:'10:00', end:'11:00', title:'Open Mat (opcional)', type:'nogi', location:'Arte Suave', note:'OPCIONAL.', is_optional:true, sort_order:2 },
   { id:'A-sun-meal',     plan:'A', day_name:'Domingo', start:'14:00', end:'17:00', title:'Meal prep semana', type:'meal', note:'Cocinar comidas Lun-Jue. Esencial para los dias de doble.', sort_order:3 },
   { id:'A-sun-recovery', plan:'A', day_name:'Domingo', start:'17:30', end:'19:00', title:'Recovery + estiramiento', type:'recovery', sort_order:4 },
@@ -136,8 +138,13 @@ export const ALL_SESSIONS: ScheduleSession[] = [
   ...PLAN_B_SESSIONS,
 ];
 
-export function getSessionsByPlan(plan: PlanId): Record<string, ScheduleSession[]> {
-  const sessions = ALL_SESSIONS.filter((s) => s.plan === plan);
+export function getSessionsByPlan(plan: PlanId, variant?: GiNogiVariant): Record<string, ScheduleSession[]> {
+  const sessions = ALL_SESSIONS.filter((s) => {
+    if (s.plan !== plan) return false;
+    // If session has a week_variant restriction, only show it for the matching variant
+    if (s.week_variant && variant && s.week_variant !== variant) return false;
+    return true;
+  });
   return DAYS.reduce<Record<string, ScheduleSession[]>>((acc, day) => {
     acc[day] = sessions
       .filter((s) => s.day_name === day)
