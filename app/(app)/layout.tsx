@@ -18,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <h1>Schedule semanal</h1>
           <span className="subtitle">BJJ / NoGi / Strength</span>
         </div>
-        <nav style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <nav className="nav-desktop" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <Link href="/week" className="nav-link">Semana</Link>
           <Link href="/review" className="nav-link">Review</Link>
           <Link href="/chat" className="nav-link">Asistente</Link>

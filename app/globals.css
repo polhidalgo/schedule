@@ -426,3 +426,212 @@ input, textarea, select { font-family: inherit; color: inherit; }
 .ginogi-btn:last-child { border-right: none; }
 .ginogi-btn.active-gi  { background: #a855f7; color: white; }
 .ginogi-btn.active-nogi { background: #3b82f6; color: white; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   Mobile styles (≤768px)
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Bottom nav ── */
+.mobile-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  background: var(--bg-elev);
+  border-top: 1px solid var(--border);
+  z-index: 40;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.mobile-nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 4px 8px;
+  color: var(--text-faint);
+  font-size: 11px;
+  transition: var(--transition);
+}
+.mobile-nav-btn.active {
+  color: var(--accent);
+}
+.mobile-nav-btn.active .mobile-nav-icon {
+  color: var(--accent);
+}
+.mobile-nav-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+.mobile-nav-label {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+/* ── Content padding for bottom nav ── */
+.mobile-content {
+  padding-bottom: 70px;
+  min-height: 100vh;
+}
+.mobile-controls-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+.mobile-tab-content {
+  overflow-y: auto;
+}
+
+/* ── Day navigator ── */
+.day-navigator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.day-navigator-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+.day-navigator-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+.day-navigator-name.is-today {
+  color: var(--accent);
+}
+.day-navigator-today-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-strong);
+  color: white;
+  font-weight: 500;
+}
+.day-nav-arrow {
+  font-size: 24px;
+  color: var(--text-dim);
+  padding: 4px 10px;
+  border-radius: var(--radius);
+  transition: var(--transition);
+}
+.day-nav-arrow:hover { color: var(--accent); }
+
+/* Dot indicators row */
+.day-dots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  width: 100%;
+  justify-content: center;
+}
+.day-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  transition: var(--transition);
+  padding: 0;
+}
+.day-dot.active { background: var(--accent); border-color: var(--accent); }
+.day-dot.today  { border-color: var(--warn); }
+.day-dot.active.today { background: var(--warn); border-color: var(--warn); }
+
+/* ── Mobile day view ── */
+.mobile-day-view { padding-bottom: 8px; }
+.mobile-today-banner { padding: 12px 14px 0; }
+.mobile-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+}
+.mobile-empty {
+  text-align: center;
+  color: var(--text-faint);
+  padding: 32px 0;
+  font-size: 13px;
+}
+
+/* ── Mobile week overview ── */
+.mobile-week-scroll {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: 10px;
+  padding: 14px;
+  -webkit-overflow-scrolling: touch;
+}
+.mobile-week-scroll::-webkit-scrollbar { height: 4px; }
+.mobile-week-card {
+  scroll-snap-align: start;
+  min-width: 90px;
+  flex-shrink: 0;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: var(--transition);
+  text-align: center;
+}
+.mobile-week-card:hover,
+.mobile-week-card:active { border-color: var(--accent); }
+.mobile-week-card.today {
+  border-color: var(--accent);
+  background: rgba(96,165,250,0.08);
+}
+.mobile-week-card-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.mobile-week-card-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+}
+.mobile-week-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+}
+.mobile-week-card-progress {
+  display: flex;
+  gap: 4px;
+  font-size: 10px;
+}
+
+/* ── Desktop nav hidden on mobile ── */
+@media (max-width: 768px) {
+  .nav-desktop { display: none !important; }
+  .topbar { padding: 10px 14px; }
+  .topbar .brand h1 { font-size: 16px; }
+  .topbar .brand .subtitle { font-size: 11px; }
+}
+
+/* Screen reader only */
+.sr-only {
+  position: absolute; width: 1px; height: 1px;
+  padding: 0; margin: -1px; overflow: hidden;
+  clip: rect(0,0,0,0); white-space: nowrap; border-width: 0;
+}

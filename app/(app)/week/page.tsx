@@ -12,13 +12,20 @@ import FeedbackForm from '@/components/FeedbackForm';
 import SessionModal from '@/components/SessionModal';
 import EventForm from '@/components/EventForm';
 import Heatmap from '@/components/Heatmap';
+import MobileNav, { type MobileTab } from '@/components/MobileNav';
+import DayNavigator from '@/components/DayNavigator';
+import MobileDayView from '@/components/MobileDayView';
+import MobileWeekOverview from '@/components/MobileWeekOverview';
+import PlanningChat from '@/components/PlanningChat';
 import { createClient } from '@/lib/supabase/client';
 import { getSessionsByPlan } from '@/lib/schedule/data';
 import { todayDayName, toDateKey, getWeekStart, getGiNogiVariant } from '@/lib/schedule/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type {
   PlanId, GiNogiVariant, ScheduleSession, SessionStatus,
   TrainingLog, DailyFeedback, ScheduleEvent,
 } from '@/lib/schedule/types';
+import type { DayName } from '@/lib/schedule/data';
 
 const DEFAULT_HIDDEN = new Set(['work', 'commute']);
 
@@ -28,43 +35,46 @@ export default function WeekPage() {
   const todayKey = toDateKey();
   const weekStart = getWeekStart();
   const autoVariant = getGiNogiVariant(weekStart);
+  const isMobile = useIsMobile();
 
-  // ── UI state ────────────────────────────────────────────────────────────
+  // ── UI state ─────────────────────────────────────────────────────────────
   const [plan, setPlan] = useState<PlanId>('A');
   const [variant, setVariant] = useState<GiNogiVariant>(autoVariant);
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(DEFAULT_HIDDEN);
   const [selectedSession, setSelectedSession] = useState<ScheduleSession | null>(null);
 
-  // ── Supabase data ────────────────────────────────────────────────────────
+  // Mobile-specific state
+  const [mobileTab, setMobileTab] = useState<MobileTab>('hoy');
+  const [mobileDay, setMobileDay] = useState<DayName>(today);
+
+  // ── Supabase data ─────────────────────────────────────────────────────────
   const [sessionLogs, setSessionLogs] = useState<TrainingLog[]>([]);
   const [todayFeedback, setTodayFeedback] = useState<DailyFeedback | null>(null);
   const [feedbackHistory, setFeedbackHistory] = useState<DailyFeedback[]>([]);
   const [allLogs, setAllLogs] = useState<TrainingLog[]>([]);
 
-  // ── Derived ──────────────────────────────────────────────────────────────
+  // ── Derived ───────────────────────────────────────────────────────────────
   const schedule = getSessionsByPlan(plan);
   const todaySessions = schedule[today] ?? [];
+  const mobileSessions = schedule[mobileDay] ?? [];
 
   const statusMap: Record<string, SessionStatus | null> = {};
   sessionLogs.forEach((l) => { statusMap[l.session_id] = l.status ?? null; });
 
   const selectedLog = sessionLogs.find((l) => l.session_id === selectedSession?.id) ?? null;
 
-  // ── Streak ───────────────────────────────────────────────────────────────
+  // ── Streak ────────────────────────────────────────────────────────────────
   const streak = (() => {
     const doneSet = new Set(
       allLogs.filter((l) => l.status === 'done' || l.status === 'modified').map((l) => l.date)
     );
     let count = 0;
     const d = new Date();
-    while (doneSet.has(toDateKey(d))) {
-      count++;
-      d.setDate(d.getDate() - 1);
-    }
+    while (doneSet.has(toDateKey(d))) { count++; d.setDate(d.getDate() - 1); }
     return count;
   })();
 
-  // ── Session type counters for the week ───────────────────────────────────
+  // ── Week session counters ─────────────────────────────────────────────────
   const weekSessionCounts = (() => {
     const counts: Record<string, number> = {};
     const weekDoneIds = new Set(
@@ -76,79 +86,58 @@ export default function WeekPage() {
     return counts;
   })();
 
-  // ── Load data ────────────────────────────────────────────────────────────
+  // ── Load data ─────────────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Load week config
     const { data: weekCfg } = await supabase
-      .from('week_configs')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('week_start', weekStart)
-      .maybeSingle();
+      .from('week_configs').select('*')
+      .eq('user_id', user.id).eq('week_start', weekStart).maybeSingle();
+    if (weekCfg) { setPlan(weekCfg.plan as PlanId); setVariant(weekCfg.gi_nogi_variant as GiNogiVariant); }
 
-    if (weekCfg) {
-      setPlan(weekCfg.plan as PlanId);
-      setVariant(weekCfg.gi_nogi_variant as GiNogiVariant);
-    }
-
-    // Load today's session logs
     const { data: logs } = await supabase
-      .from('training_logs')
-      .select('*')
-      .eq('user_id', user.id)
-      .gte('date', weekStart);
+      .from('training_logs').select('*')
+      .eq('user_id', user.id).gte('date', weekStart);
     setSessionLogs(logs ?? []);
 
-    // Load today's feedback
     const { data: fb } = await supabase
-      .from('daily_feedback')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('date', todayKey)
-      .maybeSingle();
+      .from('daily_feedback').select('*')
+      .eq('user_id', user.id).eq('date', todayKey).maybeSingle();
     setTodayFeedback(fb);
 
-    // Load recent feedback history
     const { data: hist } = await supabase
-      .from('daily_feedback')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('date', { ascending: false })
-      .limit(10);
+      .from('daily_feedback').select('*')
+      .eq('user_id', user.id).order('date', { ascending: false }).limit(10);
     setFeedbackHistory(hist ?? []);
 
-    // Load all logs for heatmap/streak
     const { data: allL } = await supabase
-      .from('training_logs')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('date', { ascending: false })
-      .limit(500);
+      .from('training_logs').select('*')
+      .eq('user_id', user.id).order('date', { ascending: false }).limit(500);
     setAllLogs(allL ?? []);
   }, [supabase, weekStart, todayKey]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────
   async function handlePlanChange(newPlan: PlanId) {
     setPlan(newPlan);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from('week_configs').upsert({
-      user_id: user.id, week_start: weekStart, plan: newPlan, gi_nogi_variant: variant,
-    }, { onConflict: 'user_id,week_start' });
+    await supabase.from('week_configs').upsert(
+      { user_id: user.id, week_start: weekStart, plan: newPlan, gi_nogi_variant: variant },
+      { onConflict: 'user_id,week_start' }
+    );
   }
 
   async function handleVariantChange(newVariant: GiNogiVariant) {
     setVariant(newVariant);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from('week_configs').upsert({
-      user_id: user.id, week_start: weekStart, plan, gi_nogi_variant: newVariant,
-    }, { onConflict: 'user_id,week_start' });
+    await supabase.from('week_configs').upsert(
+      { user_id: user.id, week_start: weekStart, plan, gi_nogi_variant: newVariant },
+      { onConflict: 'user_id,week_start' }
+    );
   }
 
   function toggleType(type: string) {
@@ -165,20 +154,14 @@ export default function WeekPage() {
     if (!selectedSession) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     if (!update.status) {
-      await supabase.from('training_logs')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('date', todayKey)
-        .eq('session_id', selectedSession.id);
+      await supabase.from('training_logs').delete()
+        .eq('user_id', user.id).eq('date', todayKey).eq('session_id', selectedSession.id);
     } else {
-      await supabase.from('training_logs').upsert({
-        user_id: user.id,
-        date: todayKey,
-        session_id: selectedSession.id,
-        ...update,
-      }, { onConflict: 'user_id,date,session_id' });
+      await supabase.from('training_logs').upsert(
+        { user_id: user.id, date: todayKey, session_id: selectedSession.id, ...update },
+        { onConflict: 'user_id,date,session_id' }
+      );
     }
     await loadData();
   }
@@ -186,40 +169,75 @@ export default function WeekPage() {
   async function handleFeedbackSave(fb: Omit<DailyFeedback, 'id' | 'user_id' | 'date'>) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from('daily_feedback').upsert({
-      user_id: user.id, date: todayKey, ...fb,
-    }, { onConflict: 'user_id,date' });
+    await supabase.from('daily_feedback').upsert(
+      { user_id: user.id, date: todayKey, ...fb },
+      { onConflict: 'user_id,date' }
+    );
     await loadData();
   }
 
   async function handleEventSave(event: Omit<ScheduleEvent, 'id' | 'user_id' | 'ai_suggestion'>): Promise<string | null> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return null;
-
-    // Get AI suggestion
     let suggestion: string | null = null;
     try {
       const res = await fetch('/api/groq/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event, plan, variant }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        suggestion = data.suggestion ?? null;
-      }
+      if (res.ok) { const data = await res.json(); suggestion = data.suggestion ?? null; }
     } catch { /* ignore */ }
-
-    await supabase.from('events').insert({
-      user_id: user.id, ...event, ai_suggestion: suggestion,
-    });
-
+    await supabase.from('events').insert({ user_id: user.id, ...event, ai_suggestion: suggestion });
     return suggestion;
   }
 
+  // ── Shared props ──────────────────────────────────────────────────────────
+  const sharedProps = {
+    plan, variant, hiddenTypes, statusMap, streak, weekSessionCounts,
+    schedule, today, todaySessions, todayFeedback, feedbackHistory, allLogs,
+    handlePlanChange, handleVariantChange, toggleType,
+    handleSessionSave, handleFeedbackSave, handleEventSave,
+    setSelectedSession,
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  return (
+    <>
+      {isMobile
+        ? <MobileLayout
+            {...sharedProps}
+            mobileTab={mobileTab}
+            setMobileTab={setMobileTab}
+            mobileDay={mobileDay}
+            setMobileDay={setMobileDay}
+            mobileSessions={mobileSessions}
+          />
+        : <DesktopLayout {...sharedProps} />
+      }
+
+      {selectedSession && (
+        <SessionModal
+          session={selectedSession}
+          log={selectedLog}
+          onClose={() => setSelectedSession(null)}
+          onSave={handleSessionSave}
+        />
+      )}
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Desktop Layout (unchanged from original)
+// ─────────────────────────────────────────────────────────────────────────────
+function DesktopLayout({
+  plan, variant, hiddenTypes, statusMap, streak, weekSessionCounts,
+  schedule, today, todaySessions, todayFeedback, feedbackHistory, allLogs,
+  handlePlanChange, handleVariantChange, toggleType,
+  handleFeedbackSave, handleEventSave, setSelectedSession,
+}: SharedProps) {
   return (
     <div>
-      {/* Controls bar */}
       <div style={{
         display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap',
         padding: '12px 18px', borderBottom: '1px solid var(--border)',
@@ -228,9 +246,7 @@ export default function WeekPage() {
         <PlanToggle current={plan} onChange={handlePlanChange} />
         <GiNogiToggle current={variant} onChange={handleVariantChange} auto />
         <FilterChips hidden={hiddenTypes} onToggle={toggleType} />
-        {streak > 0 && (
-          <div className="streak-badge">🔥 {streak} dias</div>
-        )}
+        {streak > 0 && <div className="streak-badge">🔥 {streak} dias</div>}
       </div>
 
       <main className="layout">
@@ -243,49 +259,37 @@ export default function WeekPage() {
         />
 
         <aside className="sidebar">
-          {/* Today */}
           <div className="sidebar-section today-card">
             <h2>Hoy · {today}</h2>
             <TodayCard todaySessions={todaySessions} hiddenTypes={hiddenTypes} />
           </div>
 
-          {/* Week session counts */}
           {Object.keys(weekSessionCounts).length > 0 && (
             <div className="sidebar-section">
               <h2>Esta semana</h2>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {Object.entries(weekSessionCounts).map(([t, n]) => (
-                  <span key={t} className="summary-chip" style={{ color: `var(--text)` }}>
-                    {t} ×{n}
-                  </span>
+                  <span key={t} className="summary-chip">{t} ×{n}</span>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Daily feedback */}
           <div className="sidebar-section feedback-card">
             <h2>Como me siento hoy</h2>
-            <FeedbackForm
-              initial={todayFeedback}
-              currentPlan={plan}
-              onSave={handleFeedbackSave}
-            />
+            <FeedbackForm initial={todayFeedback} currentPlan={plan} onSave={handleFeedbackSave} />
           </div>
 
-          {/* Events */}
           <div className="sidebar-section">
             <h2>Agregar evento</h2>
             <EventForm onSave={handleEventSave} />
           </div>
 
-          {/* Heatmap */}
           <div className="sidebar-section">
             <h2>Asistencia (3 meses)</h2>
             <Heatmap logs={allLogs} months={3} />
           </div>
 
-          {/* History */}
           <div className="sidebar-section history-card">
             <h2>Historial diario</h2>
             {feedbackHistory.length === 0 ? (
@@ -293,9 +297,7 @@ export default function WeekPage() {
             ) : (
               feedbackHistory.map((fb) => (
                 <div key={fb.date} className="history-entry">
-                  <div className="date">
-                    <span>{fb.date} · Plan {fb.plan}</span>
-                  </div>
+                  <div className="date"><span>{fb.date} · Plan {fb.plan}</span></div>
                   <div className="stats">
                     <span>Energia {fb.energy}/5</span>
                     <span>Dolor {fb.pain}/5</span>
@@ -309,15 +311,156 @@ export default function WeekPage() {
           </div>
         </aside>
       </main>
-
-      {selectedSession && (
-        <SessionModal
-          session={selectedSession}
-          log={selectedLog}
-          onClose={() => setSelectedSession(null)}
-          onSave={handleSessionSave}
-        />
-      )}
     </div>
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mobile Layout
+// ─────────────────────────────────────────────────────────────────────────────
+function MobileLayout({
+  plan, variant, hiddenTypes, statusMap, streak, weekSessionCounts,
+  schedule, today, todayFeedback, feedbackHistory, allLogs,
+  handlePlanChange, handleVariantChange, toggleType,
+  handleFeedbackSave, handleEventSave, setSelectedSession,
+  mobileTab, setMobileTab, mobileDay, setMobileDay, mobileSessions,
+}: SharedProps & MobileProps) {
+  function handleDaySelect(day: DayName) {
+    setMobileDay(day);
+    setMobileTab('hoy');
+  }
+
+  return (
+    <div className="mobile-content">
+      {/* Controls strip */}
+      <div className="mobile-controls-strip">
+        <PlanToggle current={plan} onChange={handlePlanChange} />
+        <GiNogiToggle current={variant} onChange={handleVariantChange} auto />
+        {streak > 0 && <div className="streak-badge">🔥 {streak}</div>}
+      </div>
+
+      {/* Tab content */}
+      <div className="mobile-tab-content">
+        {mobileTab === 'hoy' && (
+          <>
+            <DayNavigator selected={mobileDay} today={today} onChange={setMobileDay} />
+            <MobileDayView
+              dayName={mobileDay}
+              todayName={today}
+              sessions={mobileSessions}
+              hiddenTypes={hiddenTypes}
+              sessionStatuses={statusMap}
+              onSessionClick={setSelectedSession}
+            />
+          </>
+        )}
+
+        {mobileTab === 'semana' && (
+          <div style={{ padding: '12px 0' }}>
+            <MobileWeekOverview
+              schedule={schedule}
+              todayName={today}
+              hiddenTypes={hiddenTypes}
+              sessionStatuses={statusMap}
+              onDaySelect={handleDaySelect}
+            />
+            <div style={{ padding: '0 14px' }}>
+              <FilterChips hidden={hiddenTypes} onToggle={toggleType} />
+            </div>
+          </div>
+        )}
+
+        {mobileTab === 'log' && (
+          <div style={{ padding: 14 }}>
+            <div className="sidebar-section feedback-card" style={{ marginBottom: 14 }}>
+              <h2>Como me siento hoy</h2>
+              <FeedbackForm initial={todayFeedback} currentPlan={plan} onSave={handleFeedbackSave} />
+            </div>
+
+            {Object.keys(weekSessionCounts).length > 0 && (
+              <div className="sidebar-section" style={{ marginBottom: 14 }}>
+                <h2>Esta semana</h2>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {Object.entries(weekSessionCounts).map(([t, n]) => (
+                    <span key={t} className="summary-chip">{t} ×{n}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="sidebar-section" style={{ marginBottom: 14 }}>
+              <h2>Agregar evento</h2>
+              <EventForm onSave={handleEventSave} />
+            </div>
+
+            <div className="sidebar-section" style={{ marginBottom: 14 }}>
+              <h2>Asistencia (3 meses)</h2>
+              <Heatmap logs={allLogs} months={3} />
+            </div>
+
+            <div className="sidebar-section history-card">
+              <h2>Historial diario</h2>
+              {feedbackHistory.length === 0 ? (
+                <div className="empty">Aun no has guardado feedback.</div>
+              ) : (
+                feedbackHistory.map((fb) => (
+                  <div key={fb.date} className="history-entry">
+                    <div className="date"><span>{fb.date} · Plan {fb.plan}</span></div>
+                    <div className="stats">
+                      <span>Energia {fb.energy}/5</span>
+                      <span>Dolor {fb.pain}/5</span>
+                      <span>Sueno {fb.sleep_hours}h</span>
+                      {fb.fatigue && <span>Fatiga {fb.fatigue}/5</span>}
+                    </div>
+                    {fb.notes && <div className="note">{fb.notes}</div>}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {mobileTab === 'chat' && (
+          <div style={{ padding: 14, height: 'calc(100vh - 180px)', display: 'flex', flexDirection: 'column' }}>
+            <PlanningChat />
+          </div>
+        )}
+      </div>
+
+      <MobileNav active={mobileTab} onChange={setMobileTab} />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Prop types
+// ─────────────────────────────────────────────────────────────────────────────
+interface SharedProps {
+  plan: PlanId;
+  variant: GiNogiVariant;
+  hiddenTypes: Set<string>;
+  statusMap: Record<string, SessionStatus | null>;
+  streak: number;
+  weekSessionCounts: Record<string, number>;
+  schedule: Record<string, ScheduleSession[]>;
+  today: DayName;
+  todaySessions: ScheduleSession[];
+  todayFeedback: DailyFeedback | null;
+  feedbackHistory: DailyFeedback[];
+  allLogs: TrainingLog[];
+  handlePlanChange: (p: PlanId) => void;
+  handleVariantChange: (v: GiNogiVariant) => void;
+  toggleType: (t: string) => void;
+  handleSessionSave: (u: { status?: SessionStatus | null; rpe?: number | null; note?: string | null }) => Promise<void>;
+  handleFeedbackSave: (fb: Omit<DailyFeedback, 'id' | 'user_id' | 'date'>) => Promise<void>;
+  handleEventSave: (e: Omit<ScheduleEvent, 'id' | 'user_id' | 'ai_suggestion'>) => Promise<string | null>;
+  setSelectedSession: (s: ScheduleSession | null) => void;
+}
+
+interface MobileProps {
+  mobileTab: MobileTab;
+  setMobileTab: (t: MobileTab) => void;
+  mobileDay: DayName;
+  setMobileDay: (d: DayName) => void;
+  mobileSessions: ScheduleSession[];
 }
