@@ -34,7 +34,7 @@ export default function DayNavigator({ selected, today, onChange }: Props) {
 
   return (
     <div className="day-navigator">
-      <button className="day-nav-arrow" onClick={prev} aria-label="Dia anterior">&#8249;</button>
+      <button type="button" className="day-nav-arrow" onClick={prev} aria-label="Dia anterior">&#8249;</button>
 
       <div className="day-navigator-center">
         <span className={`day-navigator-name${selected === today ? ' is-today' : ''}`}>
@@ -42,6 +42,7 @@ export default function DayNavigator({ selected, today, onChange }: Props) {
         </span>
         {selected !== today && (
           <button
+            type="button"
             className="day-navigator-today-btn"
             onClick={() => onChange(today)}
           >
@@ -50,13 +51,14 @@ export default function DayNavigator({ selected, today, onChange }: Props) {
         )}
       </div>
 
-      <button className="day-nav-arrow" onClick={next} aria-label="Dia siguiente">&#8250;</button>
+      <button type="button" className="day-nav-arrow" onClick={next} aria-label="Dia siguiente">&#8250;</button>
 
       {/* Dot indicators */}
       <div className="day-dots">
         {DAYS.map((day) => (
           <button
             key={day}
+            type="button"
             className={`day-dot${day === selected ? ' active' : ''}${day === today ? ' today' : ''}`}
             onClick={() => onChange(day)}
             title={day}

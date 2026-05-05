@@ -13,6 +13,7 @@ export default function FilterChips({ hidden, onToggle }: Props) {
       {Object.entries(TYPES).map(([key, info]) => (
         <button
           key={key}
+          type="button"
           className={`filter-chip${hidden.has(key) ? ' off' : ''}`}
           style={{ color: info.color }}
           title={`Mostrar/ocultar ${info.label}`}

@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { groq, GROQ_MODEL, SYSTEM_CONTEXT } from '@/lib/groq/client';
-import { getSessionsByPlan } from '@/lib/schedule/data';
+import { getSessionsByPlan, DAYS } from '@/lib/schedule/data';
+import { createClient } from '@/lib/supabase/server';
 import type { PlanId, GiNogiVariant } from '@/lib/schedule/types';
 
 export async function POST(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ suggestion: '' }, { status: 401 });
+
   try {
     const { event, plan, variant } = await request.json() as {
       event: { date: string; title: string; start_time?: string; end_time?: string; note?: string; type: string };
@@ -12,8 +17,9 @@ export async function POST(request: Request) {
     };
 
     const schedule = getSessionsByPlan(plan);
-    const dayOfWeek = new Date(event.date + 'T12:00:00').toLocaleDateString('es', { weekday: 'long' });
-    const dayName = dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1);
+    // Compute weekday index numerically to avoid locale/accent issues with toLocaleDateString
+    const idx = (new Date(event.date + 'T12:00:00').getDay() + 6) % 7;
+    const dayName = DAYS[idx];
     const sessionsToday = (schedule[dayName] ?? [])
       .map((s) => `${s.start}-${s.end}: ${s.title}${s.note ? ` [${s.note}]` : ''}`)
       .join('\n');

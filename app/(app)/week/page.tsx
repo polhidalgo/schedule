@@ -1,7 +1,5 @@
 'use client';
 
-export const dynamic = 'force-dynamic';
-
 import { useCallback, useEffect, useState } from 'react';
 import WeekGrid from '@/components/WeekGrid';
 import PlanToggle from '@/components/PlanToggle';
@@ -118,9 +116,10 @@ export default function WeekPage() {
       .eq('user_id', user.id).order('date', { ascending: false }).limit(10);
     setFeedbackHistory(hist ?? []);
 
+    // High limit covers ~3 sessions/day × 365 days = ~1095; 5000 ensures years of history
     const { data: allL } = await supabase
       .from('training_logs').select('*')
-      .eq('user_id', user.id).order('date', { ascending: false }).limit(500);
+      .eq('user_id', user.id).order('date', { ascending: false }).limit(5000);
     setAllLogs(allL ?? []);
   }, [supabase, weekStart, todayKey]);
 

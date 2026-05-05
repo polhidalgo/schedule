@@ -16,12 +16,14 @@ export default function GiNogiToggle({ current, onChange, auto }: Props) {
       )}
       <div className="ginogi-toggle">
         <button
+          type="button"
           className={`ginogi-btn${current === 'nogi' ? ' active-nogi' : ''}`}
           onClick={() => onChange('nogi')}
         >
           NoGi
         </button>
         <button
+          type="button"
           className={`ginogi-btn${current === 'gi' ? ' active-gi' : ''}`}
           onClick={() => onChange('gi')}
         >

@@ -12,7 +12,7 @@ interface Props {
 function getDaysInRange(months: number): string[] {
   const end = new Date();
   const start = new Date();
-  start.setMonth(start.getMonth() - months + 1);
+  start.setMonth(start.getMonth() - months);
   start.setDate(1);
   const days: string[] = [];
   const cur = new Date(start);

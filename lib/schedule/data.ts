@@ -8,7 +8,7 @@ export const TYPES: Record<string, SessionTypeInfo> = {
   strength:     { label: 'Fuerza',          color: '#f97316' },
   conditioning: { label: 'Acondicionamiento', color: '#eab308' },
   work:         { label: 'Trabajo',         color: '#475569' },
-  commute:      { label: 'Comute',          color: '#64748b' },
+  commute:      { label: 'Commute',         color: '#64748b' },
   meal:         { label: 'Comida/Tareas',   color: '#0ea5e9' },
   rest:         { label: 'Descanso',        color: '#334155' },
   recovery:     { label: 'Recovery',        color: '#14b8a6' },

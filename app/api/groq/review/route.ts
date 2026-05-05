@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { groq, GROQ_MODEL, SYSTEM_CONTEXT } from '@/lib/groq/client';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   try {
     const { weekStart, logs, feedback, events } = await request.json();
 
@@ -26,10 +31,19 @@ export async function POST(request: Request) {
       ? (feedback.reduce((sum: number, f: { pain: number }) => sum + f.pain, 0) / feedback.length).toFixed(1)
       : 'N/A';
 
-    const highRpeDays = logs?.filter((l: { rpe?: number }) => (l.rpe ?? 0) >= 8).length ?? 0;
-    const lowSleepDays = feedback?.filter((f: { sleep_hours: number }) => f.sleep_hours < 6).length ?? 0;
-    const lowEnergyDays = feedback?.filter((f: { energy: number }) => f.energy <= 2).length ?? 0;
-    const highPainDays = feedback?.filter((f: { pain: number }) => f.pain >= 3).length ?? 0;
+    // Count unique calendar days (not rows) for alert thresholds
+    const highRpeDays = new Set(
+      logs?.filter((l: { rpe?: number }) => (l.rpe ?? 0) >= 8).map((l: { date: string }) => l.date) ?? []
+    ).size;
+    const lowSleepDays = new Set(
+      feedback?.filter((f: { sleep_hours: number }) => f.sleep_hours < 6).map((f: { date: string }) => f.date) ?? []
+    ).size;
+    const lowEnergyDays = new Set(
+      feedback?.filter((f: { energy: number }) => f.energy <= 2).map((f: { date: string }) => f.date) ?? []
+    ).size;
+    const highPainDays = new Set(
+      feedback?.filter((f: { pain: number }) => f.pain >= 3).map((f: { date: string }) => f.date) ?? []
+    ).size;
 
     const sessionNotes = logs
       ?.filter((l: { note?: string }) => l.note)

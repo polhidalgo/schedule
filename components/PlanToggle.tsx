@@ -13,6 +13,7 @@ export default function PlanToggle({ current, onChange }: Props) {
       {(['A', 'B'] as PlanId[]).map((p) => (
         <button
           key={p}
+          type="button"
           className={`plan-btn${current === p ? ' active' : ''}`}
           role="tab"
           aria-selected={current === p}

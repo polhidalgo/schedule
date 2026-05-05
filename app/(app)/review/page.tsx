@@ -39,8 +39,12 @@ export default function ReviewPage() {
       supabase.from('training_logs').select('*').eq('user_id', user.id).gte('date', selectedWeek).lt('date', (() => {
         const d = new Date(selectedWeek); d.setDate(d.getDate() + 7); return d.toISOString().split('T')[0];
       })()),
-      supabase.from('daily_feedback').select('*').eq('user_id', user.id).gte('date', selectedWeek),
-      supabase.from('events').select('*').eq('user_id', user.id).gte('date', selectedWeek),
+      supabase.from('daily_feedback').select('*').eq('user_id', user.id).gte('date', selectedWeek).lt('date', (() => {
+        const d = new Date(selectedWeek); d.setDate(d.getDate() + 7); return d.toISOString().split('T')[0];
+      })()),
+      supabase.from('events').select('*').eq('user_id', user.id).gte('date', selectedWeek).lt('date', (() => {
+        const d = new Date(selectedWeek); d.setDate(d.getDate() + 7); return d.toISOString().split('T')[0];
+      })()),
     ]);
 
     try {

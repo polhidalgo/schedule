@@ -20,6 +20,7 @@ export default function MobileNav({ active, onChange }: Props) {
       {TABS.map(({ id, label, icon }) => (
         <button
           key={id}
+          type="button"
           role="tab"
           aria-selected={active === id}
           className={`mobile-nav-btn${active === id ? ' active' : ''}`}
