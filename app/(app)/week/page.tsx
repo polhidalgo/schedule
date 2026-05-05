@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import WeekGrid from '@/components/WeekGrid';
 import PlanToggle from '@/components/PlanToggle';
-import GiNogiToggle from '@/components/GiNogiToggle';
 import FilterChips from '@/components/FilterChips';
 import TodayCard from '@/components/TodayCard';
 import FeedbackForm from '@/components/FeedbackForm';
@@ -37,8 +36,9 @@ export default function WeekPage() {
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [plan, setPlan] = useState<PlanId>('A');
-  const [variant, setVariant] = useState<GiNogiVariant>(autoVariant);
   const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(DEFAULT_HIDDEN);
+  // variant is always auto-computed — no manual override
+  const variant = autoVariant;
   const [selectedSession, setSelectedSession] = useState<ScheduleSession | null>(null);
 
   // Mobile-specific state
@@ -99,7 +99,8 @@ export default function WeekPage() {
     const { data: weekCfg } = await supabase
       .from('week_configs').select('*')
       .eq('user_id', user.id).eq('week_start', weekStart).maybeSingle();
-    if (weekCfg) { setPlan(weekCfg.plan as PlanId); setVariant(weekCfg.gi_nogi_variant as GiNogiVariant); }
+    if (weekCfg) { setPlan(weekCfg.plan as PlanId); }
+    // gi_nogi_variant is always auto-computed, never loaded from DB
 
     const { data: logs } = await supabase
       .from('training_logs').select('*')
@@ -132,16 +133,6 @@ export default function WeekPage() {
     if (!user) return;
     await supabase.from('week_configs').upsert(
       { user_id: user.id, week_start: weekStart, plan: newPlan, gi_nogi_variant: variant },
-      { onConflict: 'user_id,week_start' }
-    );
-  }
-
-  async function handleVariantChange(newVariant: GiNogiVariant) {
-    setVariant(newVariant);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from('week_configs').upsert(
-      { user_id: user.id, week_start: weekStart, plan, gi_nogi_variant: newVariant },
       { onConflict: 'user_id,week_start' }
     );
   }
@@ -203,7 +194,7 @@ export default function WeekPage() {
   const sharedProps = {
     plan, variant, hiddenTypes, statusMap, metaMap, streak, weekSessionCounts,
     schedule, today, todaySessions, todayFeedback, feedbackHistory, allLogs,
-    handlePlanChange, handleVariantChange, toggleType,
+    handlePlanChange, toggleType,
     handleSessionSave, handleFeedbackSave, handleEventSave,
     setSelectedSession,
   };
@@ -241,7 +232,7 @@ export default function WeekPage() {
 function DesktopLayout({
   plan, variant, hiddenTypes, statusMap, metaMap, streak, weekSessionCounts,
   schedule, today, todaySessions, todayFeedback, feedbackHistory, allLogs,
-  handlePlanChange, handleVariantChange, toggleType,
+  handlePlanChange, toggleType,
   handleFeedbackSave, handleEventSave, setSelectedSession,
 }: SharedProps) {
   return (
@@ -252,7 +243,9 @@ function DesktopLayout({
         background: 'var(--bg-elev)',
       }}>
         <PlanToggle current={plan} onChange={handlePlanChange} />
-        <GiNogiToggle current={variant} onChange={handleVariantChange} auto />
+        <span className={`variant-badge variant-${variant}`}>
+          {variant === 'nogi' ? 'NoGi' : 'Gi'}
+        </span>
         <FilterChips hidden={hiddenTypes} onToggle={toggleType} />
         {streak > 0 && <div className="streak-badge">🔥 {streak} dias</div>}
       </div>
@@ -332,7 +325,7 @@ function DesktopLayout({
 function MobileLayout({
   plan, variant, hiddenTypes, statusMap, metaMap, streak, weekSessionCounts,
   schedule, today, todayFeedback, feedbackHistory, allLogs,
-  handlePlanChange, handleVariantChange, toggleType,
+  handlePlanChange, toggleType,
   handleFeedbackSave, handleEventSave, setSelectedSession,
   mobileTab, setMobileTab, mobileDay, setMobileDay, mobileSessions,
 }: SharedProps & MobileProps) {
@@ -346,7 +339,9 @@ function MobileLayout({
       {/* Controls strip */}
       <div className="mobile-controls-strip">
         <PlanToggle current={plan} onChange={handlePlanChange} />
-        <GiNogiToggle current={variant} onChange={handleVariantChange} auto />
+        <span className={`variant-badge variant-${variant}`}>
+          {variant === 'nogi' ? 'NoGi' : 'Gi'}
+        </span>
         {streak > 0 && <div className="streak-badge">🔥 {streak}</div>}
       </div>
 
@@ -466,7 +461,6 @@ interface SharedProps {
   feedbackHistory: DailyFeedback[];
   allLogs: TrainingLog[];
   handlePlanChange: (p: PlanId) => void;
-  handleVariantChange: (v: GiNogiVariant) => void;
   toggleType: (t: string) => void;
   handleSessionSave: (u: { status?: SessionStatus | null; rpe?: number | null; note?: string | null }) => Promise<void>;
   handleFeedbackSave: (fb: Omit<DailyFeedback, 'id' | 'user_id' | 'date'>) => Promise<void>;
