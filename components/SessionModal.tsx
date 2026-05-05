@@ -9,6 +9,7 @@ interface Props {
   log?: TrainingLog | null;
   onClose: () => void;
   onSave: (update: { status?: SessionStatus | null; rpe?: number | null; note?: string | null }) => Promise<void>;
+  onDelete?: () => Promise<void>;
 }
 
 const STATUS_OPTIONS: { value: SessionStatus | ''; label: string }[] = [
@@ -18,11 +19,12 @@ const STATUS_OPTIONS: { value: SessionStatus | ''; label: string }[] = [
   { value: '', label: 'Limpiar' },
 ];
 
-export default function SessionModal({ session, log, onClose, onSave }: Props) {
+export default function SessionModal({ session, log, onClose, onSave, onDelete }: Props) {
   const [status, setStatus] = useState<SessionStatus | ''>('');
   const [rpe, setRpe] = useState<number>(5);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const backdropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -41,6 +43,14 @@ export default function SessionModal({ session, log, onClose, onSave }: Props) {
   if (!session) return null;
 
   const color = TYPES[session.type]?.color ?? 'var(--accent)';
+
+  async function handleDelete() {
+    if (!onDelete) return;
+    setDeleting(true);
+    await onDelete();
+    setDeleting(false);
+    onClose();
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -73,9 +83,18 @@ export default function SessionModal({ session, log, onClose, onSave }: Props) {
 
         <div className="modal-body">
           <p className="modal-meta">
-            {session.start} - {session.end}
+            {session.start && session.end ? `${session.start} - ${session.end}` : ''}
             {session.location ? ` · ${session.location}` : ''}
             {' · '}{TYPES[session.type]?.label ?? session.type}
+            {session.isExtra && (
+              <span style={{
+                marginLeft: 8, fontSize: 10, padding: '1px 6px',
+                borderRadius: 4, background: 'var(--bg-elev-2)',
+                color: 'var(--text-dim)', border: '1px solid var(--border)',
+              }}>
+                extra
+              </span>
+            )}
           </p>
 
           {session.note && <p className="modal-note">{session.note}</p>}
@@ -118,9 +137,24 @@ export default function SessionModal({ session, log, onClose, onSave }: Props) {
             />
           </label>
 
-          <button className="save-btn" onClick={handleSave} disabled={saving}>
+          <button className="save-btn" onClick={handleSave} disabled={saving || deleting}>
             {saving ? 'Guardando...' : 'Guardar'}
           </button>
+
+          {session.isExtra && onDelete && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting || saving}
+              style={{
+                width: '100%', marginTop: 8, padding: '9px 0',
+                background: 'transparent', border: '1px solid var(--danger)',
+                borderRadius: 8, color: 'var(--danger)', fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              {deleting ? 'Eliminando...' : 'Eliminar sesion extra'}
+            </button>
+          )}
         </div>
       </div>
     </div>

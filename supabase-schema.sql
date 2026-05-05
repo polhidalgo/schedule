@@ -140,3 +140,93 @@ create policy "Users can manage their weekly reviews"
   on weekly_reviews for all
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- ============================================================
+-- 7. Catalogo de sesiones (tipos disponibles para sesiones extra)
+-- ============================================================
+create table if not exists session_catalog (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  type text not null,
+  is_active boolean default true
+);
+
+-- Datos iniciales del catalogo
+insert into session_catalog (name, type) values
+  ('No Gi Advanced',       'nogi'),
+  ('No Gi Fundamentals',   'nogi'),
+  ('No Gi Intermediate',   'nogi'),
+  ('No Gi Open Mat',       'nogi'),
+  ('Positional No Gi',     'nogi'),
+  ('Gi Advanced',          'gi'),
+  ('Gi Fundamentals',      'gi'),
+  ('Gi Open Mat',          'gi'),
+  ('Positional Gi',        'gi'),
+  ('Wrestling',            'wrestling'),
+  ('Wrestling Fundamentals','wrestling'),
+  ('Judo for BJJ',         'judo'),
+  ('Fuerza',               'strength'),
+  ('Tren Superior',        'strength'),
+  ('Acondicionamiento',    'conditioning'),
+  ('Cardio bajo impacto',  'conditioning'),
+  ('Recovery',             'recovery'),
+  ('Movilidad',            'recovery')
+on conflict do nothing;
+
+-- 8. Sesiones extra (ad-hoc por usuario y semana)
+create table if not exists extra_sessions (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid references auth.users(id) on delete cascade not null,
+  date        date not null,
+  week_start  date not null,
+  catalog_id  uuid references session_catalog(id),
+  start_time  time,
+  end_time    time,
+  note        text,
+  created_at  timestamptz default now()
+);
+
+-- 9. Preferencias de usuario (filtros y configuracion de UI persistida)
+create table if not exists user_preferences (
+  user_id      uuid primary key references auth.users(id) on delete cascade,
+  hidden_types text[] default '{}',
+  updated_at   timestamptz default now()
+);
+
+-- Extender training_logs para soportar sesiones extra
+alter table training_logs
+  add column if not exists extra_session_id uuid references extra_sessions(id) on delete cascade;
+
+-- Indice unico parcial para logs de sesiones extra (reemplaza la restriccion de session_id=null)
+create unique index if not exists training_logs_extra_unique
+  on training_logs(user_id, date, extra_session_id)
+  where extra_session_id is not null;
+
+-- ============================================================
+-- RLS para nuevas tablas
+-- ============================================================
+alter table session_catalog  enable row level security;
+alter table extra_sessions   enable row level security;
+alter table user_preferences enable row level security;
+
+-- session_catalog: lectura publica, gestion por usuarios autenticados
+create policy "Anyone can read session catalog"
+  on session_catalog for select
+  using (true);
+
+create policy "Authenticated users can manage session catalog"
+  on session_catalog for all
+  using (auth.role() = 'authenticated')
+  with check (auth.role() = 'authenticated');
+
+-- extra_sessions: solo el propio usuario
+create policy "Users can manage their extra sessions"
+  on extra_sessions for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- user_preferences: solo el propio usuario
+create policy "Users can manage their preferences"
+  on user_preferences for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

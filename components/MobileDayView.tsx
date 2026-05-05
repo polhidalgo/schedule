@@ -16,6 +16,7 @@ interface Props {
   sessionStatuses: Record<string, SessionStatus | null>;
   sessionMetas?: Record<string, SessionMeta>;
   onSessionClick: (s: ScheduleSession) => void;
+  onAddSession?: (day: DayName) => void;
 }
 
 export default function MobileDayView({
@@ -26,6 +27,7 @@ export default function MobileDayView({
   sessionStatuses,
   sessionMetas,
   onSessionClick,
+  onAddSession,
 }: Props) {
   const isToday = dayName === todayName;
   const visible = sessions.filter((s) => !hiddenTypes.has(s.type));
@@ -58,6 +60,22 @@ export default function MobileDayView({
               />
             );
           })
+        )}
+
+        {onAddSession && (
+          <button
+            type="button"
+            onClick={() => onAddSession(dayName)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              width: '100%', padding: '10px 0', marginTop: 8,
+              background: 'transparent', border: '1px dashed var(--border)',
+              borderRadius: 8, color: 'var(--text-faint)', fontSize: 13,
+            }}
+          >
+            <span>+</span>
+            <span>Agregar sesion extra</span>
+          </button>
         )}
       </div>
     </div>

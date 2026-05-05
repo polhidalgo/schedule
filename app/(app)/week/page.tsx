@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import WeekGrid from '@/components/WeekGrid';
 import PlanToggle from '@/components/PlanToggle';
 import FilterChips from '@/components/FilterChips';
@@ -9,22 +10,23 @@ import FeedbackForm from '@/components/FeedbackForm';
 import SessionModal from '@/components/SessionModal';
 import EventForm from '@/components/EventForm';
 import Heatmap from '@/components/Heatmap';
+import ExtraSessionPicker from '@/components/ExtraSessionPicker';
 import MobileNav, { type MobileTab } from '@/components/MobileNav';
 import DayNavigator from '@/components/DayNavigator';
 import MobileDayView from '@/components/MobileDayView';
 import MobileWeekOverview from '@/components/MobileWeekOverview';
 import PlanningChat from '@/components/PlanningChat';
 import { createClient } from '@/lib/supabase/client';
-import { getSessionsByPlan, TYPES } from '@/lib/schedule/data';
+import { getSessionsByPlan, TYPES, ALL_SESSIONS } from '@/lib/schedule/data';
 import { todayDayName, toDateKey, getWeekStart, getGiNogiVariant, dayNameToDateKey } from '@/lib/schedule/utils';
+import { getPreferences, upsertPreferences } from '@/lib/preferences';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import type {
   PlanId, GiNogiVariant, ScheduleSession, SessionStatus,
-  TrainingLog, DailyFeedback, ScheduleEvent,
+  TrainingLog, DailyFeedback, ScheduleEvent, ExtraSession,
 } from '@/lib/schedule/types';
 import type { DayName } from '@/lib/schedule/data';
-
-const DEFAULT_HIDDEN = new Set(['work', 'commute']);
+import { DAYS } from '@/lib/schedule/data';
 
 export default function WeekPage() {
   const supabase = createClient();
@@ -36,10 +38,12 @@ export default function WeekPage() {
 
   // ── UI state ─────────────────────────────────────────────────────────────
   const [plan, setPlan] = useState<PlanId>('A');
-  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(DEFAULT_HIDDEN);
-  // variant is always auto-computed — no manual override
+  const [hiddenTypes, setHiddenTypes] = useState<Set<string>>(new Set(['work', 'commute']));
   const variant = autoVariant;
   const [selectedSession, setSelectedSession] = useState<ScheduleSession | null>(null);
+
+  // Extra session picker state
+  const [pickerDay, setPickerDay] = useState<DayName | null>(null);
 
   // Mobile-specific state
   const [mobileTab, setMobileTab] = useState<MobileTab>('hoy');
@@ -50,23 +54,56 @@ export default function WeekPage() {
   const [todayFeedback, setTodayFeedback] = useState<DailyFeedback | null>(null);
   const [feedbackHistory, setFeedbackHistory] = useState<DailyFeedback[]>([]);
   const [allLogs, setAllLogs] = useState<TrainingLog[]>([]);
+  const [extraSessions, setExtraSessions] = useState<ExtraSession[]>([]);
 
-  // ── Derived ───────────────────────────────────────────────────────────────
-  const schedule = getSessionsByPlan(plan, variant);
-  const todaySessions = schedule[today] ?? [];
-  const mobileSessions = schedule[mobileDay] ?? [];
+  // Debounce ref for saving preferences
+  const prefsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Enriched map: status + rpe + hasNote per session_id
+  // ── Derived: merge extra sessions into schedule ───────────────────────────
+  const baseSchedule = getSessionsByPlan(plan, variant);
+
+  const mergedSchedule: Record<string, ScheduleSession[]> = { ...baseSchedule };
+  for (const day of DAYS) {
+    const extras = extraSessions
+      .filter((es) => {
+        // Find which day this date corresponds to
+        const d = new Date(es.date + 'T00:00:00');
+        const idx = (d.getDay() + 6) % 7;
+        return DAYS[idx] === day;
+      })
+      .map((es): ScheduleSession => ({
+        id: `extra-${es.id}`,
+        plan,
+        day_name: day,
+        start: es.start_time?.slice(0, 5) ?? '',
+        end: es.end_time?.slice(0, 5) ?? '',
+        title: es.session_catalog?.name ?? 'Sesion extra',
+        type: (es.session_catalog?.type as ScheduleSession['type']) ?? 'nogi',
+        note: es.note ?? undefined,
+        isExtra: true,
+        extraSessionId: es.id,
+        sort_order: 999,
+      }));
+    mergedSchedule[day] = [...(baseSchedule[day] ?? []), ...extras];
+  }
+
+  const todaySessions = mergedSchedule[today] ?? [];
+  const mobileSessions = mergedSchedule[mobileDay] ?? [];
+
+  // Enriched map: status + rpe + hasNote per session_id or extra_session_id
   const metaMap: Record<string, { status: SessionStatus | null; rpe?: number | null; hasNote?: boolean }> = {};
   sessionLogs.forEach((l) => {
-    metaMap[l.session_id] = { status: l.status ?? null, rpe: l.rpe, hasNote: !!l.note };
+    const key = l.extra_session_id ? `extra-${l.extra_session_id}` : l.session_id;
+    if (key) metaMap[key] = { status: l.status ?? null, rpe: l.rpe, hasNote: !!l.note };
   });
 
-  // Simple status-only map for components that only need status
   const statusMap: Record<string, SessionStatus | null> = {};
   Object.entries(metaMap).forEach(([id, m]) => { statusMap[id] = m.status; });
 
-  const selectedLog = sessionLogs.find((l) => l.session_id === selectedSession?.id) ?? null;
+  const selectedLog = sessionLogs.find((l) => {
+    if (selectedSession?.isExtra) return l.extra_session_id === selectedSession.extraSessionId;
+    return l.session_id === selectedSession?.id;
+  }) ?? null;
 
   // ── Streak ────────────────────────────────────────────────────────────────
   const streak = (() => {
@@ -82,11 +119,14 @@ export default function WeekPage() {
   // ── Week session counters ─────────────────────────────────────────────────
   const weekSessionCounts = (() => {
     const counts: Record<string, number> = {};
-    const weekDoneIds = new Set(
-      sessionLogs.filter((l) => l.status === 'done' || l.status === 'modified').map((l) => l.session_id)
+    const weekDoneKeys = new Set(
+      sessionLogs
+        .filter((l) => l.status === 'done' || l.status === 'modified')
+        .map((l) => l.extra_session_id ? `extra-${l.extra_session_id}` : l.session_id)
+        .filter(Boolean) as string[]
     );
-    Object.values(schedule).flat().forEach((s) => {
-      if (weekDoneIds.has(s.id)) counts[s.type] = (counts[s.type] ?? 0) + 1;
+    Object.values(mergedSchedule).flat().forEach((s) => {
+      if (weekDoneKeys.has(s.id)) counts[s.type] = (counts[s.type] ?? 0) + 1;
     });
     return counts;
   })();
@@ -96,32 +136,47 @@ export default function WeekPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Load week config
     const { data: weekCfg } = await supabase
       .from('week_configs').select('*')
       .eq('user_id', user.id).eq('week_start', weekStart).maybeSingle();
-    if (weekCfg) { setPlan(weekCfg.plan as PlanId); }
-    // gi_nogi_variant is always auto-computed, never loaded from DB
+    if (weekCfg) setPlan(weekCfg.plan as PlanId);
 
+    // Load preferences (filter settings)
+    const prefs = await getPreferences(supabase, user.id);
+    setHiddenTypes(new Set(prefs.hidden_types));
+
+    // Load weekly training logs
     const { data: logs } = await supabase
       .from('training_logs').select('*')
       .eq('user_id', user.id).gte('date', weekStart);
     setSessionLogs(logs ?? []);
 
+    // Load today feedback
     const { data: fb } = await supabase
       .from('daily_feedback').select('*')
       .eq('user_id', user.id).eq('date', todayKey).maybeSingle();
     setTodayFeedback(fb);
 
+    // Load feedback history
     const { data: hist } = await supabase
       .from('daily_feedback').select('*')
       .eq('user_id', user.id).order('date', { ascending: false }).limit(10);
     setFeedbackHistory(hist ?? []);
 
-    // High limit covers ~3 sessions/day × 365 days = ~1095; 5000 ensures years of history
+    // Load all logs for heatmap/streak
     const { data: allL } = await supabase
       .from('training_logs').select('*')
       .eq('user_id', user.id).order('date', { ascending: false }).limit(5000);
     setAllLogs(allL ?? []);
+
+    // Load extra sessions for this week (joined with session_catalog)
+    const { data: extras } = await supabase
+      .from('extra_sessions')
+      .select('*, session_catalog(*)')
+      .eq('user_id', user.id)
+      .eq('week_start', weekStart);
+    setExtraSessions(extras ?? []);
   }, [supabase, weekStart, todayKey]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -141,6 +196,15 @@ export default function WeekPage() {
     setHiddenTypes((prev) => {
       const next = new Set(prev);
       if (next.has(type)) next.delete(type); else next.add(type);
+
+      // Debounced save to DB
+      if (prefsSaveTimer.current) clearTimeout(prefsSaveTimer.current);
+      prefsSaveTimer.current = setTimeout(async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        await upsertPreferences(supabase, user.id, { hidden_types: Array.from(next) });
+      }, 600);
+
       return next;
     });
   }
@@ -151,17 +215,44 @@ export default function WeekPage() {
     if (!selectedSession) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    // Use the actual date of the session's day in this week, not always today
+
     const sessionDate = dayNameToDateKey(selectedSession.day_name, weekStart);
-    if (!update.status) {
+
+    if (selectedSession.isExtra && selectedSession.extraSessionId) {
+      const extraId = selectedSession.extraSessionId;
+      // Delete existing log for this extra session
       await supabase.from('training_logs').delete()
-        .eq('user_id', user.id).eq('date', sessionDate).eq('session_id', selectedSession.id);
+        .eq('user_id', user.id).eq('date', sessionDate).eq('extra_session_id', extraId);
+
+      if (update.status) {
+        await supabase.from('training_logs').insert({
+          user_id: user.id,
+          date: sessionDate,
+          session_id: null,
+          extra_session_id: extraId,
+          ...update,
+        });
+      }
     } else {
-      await supabase.from('training_logs').upsert(
-        { user_id: user.id, date: sessionDate, session_id: selectedSession.id, ...update },
-        { onConflict: 'user_id,date,session_id' }
-      );
+      if (!update.status) {
+        await supabase.from('training_logs').delete()
+          .eq('user_id', user.id).eq('date', sessionDate).eq('session_id', selectedSession.id);
+      } else {
+        await supabase.from('training_logs').upsert(
+          { user_id: user.id, date: sessionDate, session_id: selectedSession.id, ...update },
+          { onConflict: 'user_id,date,session_id' }
+        );
+      }
     }
+    await loadData();
+  }
+
+  async function handleExtraSessionDelete() {
+    if (!selectedSession?.isExtra || !selectedSession.extraSessionId) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from('extra_sessions').delete()
+      .eq('id', selectedSession.extraSessionId).eq('user_id', user.id);
     await loadData();
   }
 
@@ -190,13 +281,17 @@ export default function WeekPage() {
     return suggestion;
   }
 
+  function openExtraPicker(dayName: string) {
+    setPickerDay(dayName as DayName);
+  }
+
   // ── Shared props ──────────────────────────────────────────────────────────
   const sharedProps = {
     plan, variant, hiddenTypes, statusMap, metaMap, streak, weekSessionCounts,
-    schedule, today, todaySessions, todayFeedback, feedbackHistory, allLogs,
+    schedule: mergedSchedule, today, todaySessions, todayFeedback, feedbackHistory, allLogs,
     handlePlanChange, toggleType,
     handleSessionSave, handleFeedbackSave, handleEventSave,
-    setSelectedSession,
+    setSelectedSession, openExtraPicker,
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -220,6 +315,16 @@ export default function WeekPage() {
           log={selectedLog}
           onClose={() => setSelectedSession(null)}
           onSave={handleSessionSave}
+          onDelete={selectedSession.isExtra ? handleExtraSessionDelete : undefined}
+        />
+      )}
+
+      {pickerDay && (
+        <ExtraSessionPicker
+          day={pickerDay}
+          weekStart={weekStart}
+          onClose={() => setPickerDay(null)}
+          onSaved={loadData}
         />
       )}
     </>
@@ -227,13 +332,13 @@ export default function WeekPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Desktop Layout (unchanged from original)
+// Desktop Layout
 // ─────────────────────────────────────────────────────────────────────────────
 function DesktopLayout({
   plan, variant, hiddenTypes, statusMap, metaMap, streak, weekSessionCounts,
   schedule, today, todaySessions, todayFeedback, feedbackHistory, allLogs,
   handlePlanChange, toggleType,
-  handleFeedbackSave, handleEventSave, setSelectedSession,
+  handleFeedbackSave, handleEventSave, setSelectedSession, openExtraPicker,
 }: SharedProps) {
   return (
     <div>
@@ -258,6 +363,7 @@ function DesktopLayout({
           sessionStatuses={statusMap}
           sessionMetas={metaMap}
           onSessionClick={setSelectedSession}
+          onAddSession={openExtraPicker}
         />
 
         <aside className="sidebar">
@@ -326,7 +432,7 @@ function MobileLayout({
   plan, variant, hiddenTypes, statusMap, metaMap, streak, weekSessionCounts,
   schedule, today, todayFeedback, feedbackHistory, allLogs,
   handlePlanChange, toggleType,
-  handleFeedbackSave, handleEventSave, setSelectedSession,
+  handleFeedbackSave, handleEventSave, setSelectedSession, openExtraPicker,
   mobileTab, setMobileTab, mobileDay, setMobileDay, mobileSessions,
 }: SharedProps & MobileProps) {
   function handleDaySelect(day: DayName) {
@@ -358,6 +464,7 @@ function MobileLayout({
               sessionStatuses={statusMap}
               sessionMetas={metaMap}
               onSessionClick={setSelectedSession}
+              onAddSession={openExtraPicker}
             />
           </>
         )}
@@ -379,6 +486,20 @@ function MobileLayout({
 
         {mobileTab === 'log' && (
           <div style={{ padding: 14 }}>
+            <Link
+              href="/logs"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 14px', marginBottom: 14,
+                background: 'var(--bg-elev)', border: '1px solid var(--border)',
+                borderRadius: 10, color: 'var(--accent)', textDecoration: 'none',
+                fontSize: 13, fontWeight: 500,
+              }}
+            >
+              <span>Ver historial completo de sesiones</span>
+              <span>→</span>
+            </Link>
+
             <div className="sidebar-section feedback-card" style={{ marginBottom: 14 }}>
               <h2>Como me siento hoy</h2>
               <FeedbackForm initial={todayFeedback} currentPlan={plan} onSave={handleFeedbackSave} />
@@ -405,6 +526,11 @@ function MobileLayout({
             <div className="sidebar-section" style={{ marginBottom: 14 }}>
               <h2>Asistencia (3 meses)</h2>
               <Heatmap logs={allLogs} months={3} />
+            </div>
+
+            <div className="sidebar-section history-card" style={{ marginBottom: 14 }}>
+              <h2>Historial sesiones</h2>
+              <MobileSessionLogHistory logs={allLogs} schedule={schedule} />
             </div>
 
             <div className="sidebar-section history-card">
@@ -442,6 +568,63 @@ function MobileLayout({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Inline training log history for mobile log tab
+// ─────────────────────────────────────────────────────────────────────────────
+function MobileSessionLogHistory({
+  logs,
+  schedule,
+}: {
+  logs: TrainingLog[];
+  schedule: Record<string, ScheduleSession[]>;
+}) {
+  const sessionById = Object.fromEntries(ALL_SESSIONS.map((s) => [s.id, s]));
+  const extraById = Object.fromEntries(
+    Object.values(schedule).flat()
+      .filter((s) => s.isExtra)
+      .map((s) => [s.extraSessionId ?? '', s])
+  );
+
+  const doneLogs = logs
+    .filter((l) => l.status === 'done' || l.status === 'modified')
+    .slice(0, 10);
+
+  if (doneLogs.length === 0) {
+    return <div className="empty">Aun no hay sesiones registradas.</div>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {doneLogs.map((log) => {
+        const session = log.extra_session_id
+          ? extraById[log.extra_session_id]
+          : sessionById[log.session_id ?? ''];
+        if (!session) return null;
+        const color = TYPES[session.type]?.color ?? 'var(--accent)';
+        return (
+          <div key={log.id ?? `${log.date}-${log.session_id}`} style={{
+            background: 'var(--bg-elev)', border: '1px solid var(--border)',
+            borderRadius: 8, padding: '8px 10px',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{log.date}</span>
+              <span style={{ fontSize: 11, color, background: `${color}20`, padding: '1px 6px', borderRadius: 4 }}>
+                {TYPES[session.type]?.label ?? session.type}
+              </span>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>{session.title}</div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 3 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{log.status}</span>
+              {log.rpe && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>RPE {log.rpe}</span>}
+            </div>
+            {log.note && <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 3 }}>{log.note}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Prop types
 // ─────────────────────────────────────────────────────────────────────────────
 interface SessionMeta { status: SessionStatus | null; rpe?: number | null; hasNote?: boolean }
@@ -466,6 +649,7 @@ interface SharedProps {
   handleFeedbackSave: (fb: Omit<DailyFeedback, 'id' | 'user_id' | 'date'>) => Promise<void>;
   handleEventSave: (e: Omit<ScheduleEvent, 'id' | 'user_id' | 'ai_suggestion'>) => Promise<string | null>;
   setSelectedSession: (s: ScheduleSession | null) => void;
+  openExtraPicker: (day: string) => void;
 }
 
 interface MobileProps {

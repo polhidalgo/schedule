@@ -13,6 +13,7 @@ interface Props {
   sessionStatuses: Record<string, SessionStatus | null>;
   sessionMetas?: Record<string, SessionMeta>;
   onSessionClick: (s: ScheduleSession) => void;
+  onAddSession?: (day: string) => void;
 }
 
 export default function DayCard({
@@ -23,6 +24,7 @@ export default function DayCard({
   sessionStatuses,
   sessionMetas,
   onSessionClick,
+  onAddSession,
 }: Props) {
   const visibleCount = sessions.filter((s) => !hiddenTypes.has(s.type)).length;
 
@@ -49,6 +51,24 @@ export default function DayCard({
             />
           );
         })}
+        {onAddSession && (
+          <button
+            type="button"
+            onClick={() => onAddSession(dayName)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              width: '100%', padding: '6px 8px', marginTop: 4,
+              background: 'transparent', border: '1px dashed var(--border)',
+              borderRadius: 6, color: 'var(--text-faint)', fontSize: 12,
+              cursor: 'pointer', transition: 'var(--transition)',
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--accent)'; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-faint)'; }}
+          >
+            <span>+</span>
+            <span>Sesion extra</span>
+          </button>
+        )}
       </div>
     </div>
   );

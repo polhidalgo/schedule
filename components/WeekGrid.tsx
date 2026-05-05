@@ -13,6 +13,7 @@ interface Props {
   sessionStatuses: Record<string, SessionStatus | null>;
   sessionMetas?: Record<string, SessionMeta>;
   onSessionClick: (s: ScheduleSession) => void;
+  onAddSession?: (day: string) => void;
 }
 
 export default function WeekGrid({
@@ -22,6 +23,7 @@ export default function WeekGrid({
   sessionStatuses,
   sessionMetas,
   onSessionClick,
+  onAddSession,
 }: Props) {
   return (
     <section className="week-grid" aria-label="Calendario semanal">
@@ -35,6 +37,7 @@ export default function WeekGrid({
           sessionStatuses={sessionStatuses}
           sessionMetas={sessionMetas}
           onSessionClick={onSessionClick}
+          onAddSession={onAddSession}
         />
       ))}
     </section>

@@ -20,6 +20,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
         <nav className="nav-desktop" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
           <Link href="/week" className="nav-link">Semana</Link>
+          <Link href="/logs" className="nav-link">Logs</Link>
           <Link href="/review" className="nav-link">Review</Link>
           <Link href="/chat" className="nav-link">Asistente</Link>
           <LogoutButton />
