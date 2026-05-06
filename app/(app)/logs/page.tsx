@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { ALL_SESSIONS, TYPES } from '@/lib/schedule/data';
-import type { TrainingLog, SessionStatus } from '@/lib/schedule/types';
+import type { TrainingLog, SessionStatus, DailyFeedback } from '@/lib/schedule/types';
+import MonthlyStats from '@/components/MonthlyStats';
 
 interface EnrichedLog extends TrainingLog {
   sessionTitle: string;
@@ -31,6 +32,7 @@ export default function LogsPage() {
   const supabase = createClient();
 
   const [logs, setLogs] = useState<EnrichedLog[]>([]);
+  const [feedback, setFeedback] = useState<DailyFeedback[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -43,21 +45,31 @@ export default function LogsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    const { data } = await supabase
-      .from('training_logs')
-      .select(`
-        *,
-        extra_sessions (
-          start_time,
-          end_time,
-          note,
-          session_catalog ( name, type )
-        )
-      `)
-      .eq('user_id', user.id)
-      .not('status', 'is', null)
-      .order('date', { ascending: false })
-      .limit(500);
+    const [{ data }, { data: feedbackData }] = await Promise.all([
+      supabase
+        .from('training_logs')
+        .select(`
+          *,
+          extra_sessions (
+            start_time,
+            end_time,
+            note,
+            session_catalog ( name, type )
+          )
+        `)
+        .eq('user_id', user.id)
+        .not('status', 'is', null)
+        .order('date', { ascending: false })
+        .limit(500),
+      supabase
+        .from('daily_feedback')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false })
+        .limit(500),
+    ]);
+
+    setFeedback(feedbackData ?? []);
 
     const enriched: EnrichedLog[] = (data ?? []).map((row) => {
       let title = '—';
@@ -116,6 +128,14 @@ export default function LogsPage() {
 
   const totalDone = logs.filter((l) => l.status === 'done' || l.status === 'modified').length;
 
+  const filteredFeedback = feedback.filter((f) =>
+    filterMonth === 'all' || f.date.startsWith(filterMonth)
+  );
+
+  const statsMonthLabel = filterMonth === 'all'
+    ? 'Todo el historial'
+    : formatMonth(filterMonth);
+
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 16px' }}>
       <div style={{ marginBottom: 24 }}>
@@ -124,6 +144,8 @@ export default function LogsPage() {
           {totalDone} sesiones realizadas en total
         </p>
       </div>
+
+      <MonthlyStats logs={filtered} feedback={filteredFeedback} monthLabel={statsMonthLabel} />
 
       {/* Filters */}
       <div style={{

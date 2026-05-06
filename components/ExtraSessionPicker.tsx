@@ -13,6 +13,8 @@ interface Props {
   onSaved: () => void;
 }
 
+const TRAINING_TYPES = ['nogi', 'gi', 'wrestling', 'judo', 'strength', 'conditioning', 'recovery'];
+
 export default function ExtraSessionPicker({ day, weekStart, onClose, onSaved }: Props) {
   const supabase = createClient();
   const backdropRef = useRef<HTMLDivElement>(null);
@@ -30,6 +32,7 @@ export default function ExtraSessionPicker({ day, weekStart, onClose, onSaved }:
       .from('session_catalog')
       .select('*')
       .eq('is_active', true)
+      .in('type', TRAINING_TYPES)
       .order('type')
       .then(({ data }) => {
         setCatalog(data ?? []);
