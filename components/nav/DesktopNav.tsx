@@ -2,16 +2,17 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Calendar, BookOpen, BarChart2, Brain, Dumbbell, LogOut } from 'lucide-react'
+import { Calendar, BookOpen, BarChart2, Brain, Dumbbell, LogOut, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { href: '/week',   label: 'Semana',    icon: Calendar },
-  { href: '/logs',   label: 'Registro',  icon: BookOpen },
-  { href: '/stats',  label: 'Stats',     icon: BarChart2 },
-  { href: '/review', label: 'Revisión',  icon: Brain },
+  { href: '/week',     label: 'Semana',    icon: Calendar },
+  { href: '/logs',     label: 'Registro',  icon: BookOpen },
+  { href: '/stats',    label: 'Stats',     icon: BarChart2 },
+  { href: '/review',   label: 'Revisión',  icon: Brain },
+  { href: '/settings', label: 'Ajustes',   icon: Settings },
 ]
 
 export function DesktopNav() {

@@ -2,14 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Calendar, BookOpen, BarChart2, Brain } from 'lucide-react'
+import { Calendar, BookOpen, BarChart2, Brain, Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const navItems = [
-  { href: '/week',   label: 'Semana',   icon: Calendar },
-  { href: '/logs',   label: 'Hoy',      icon: BookOpen },
-  { href: '/stats',  label: 'Stats',    icon: BarChart2 },
-  { href: '/review', label: 'Revisión', icon: Brain },
+  { href: '/week',     label: 'Semana',   icon: Calendar },
+  { href: '/logs',     label: 'Hoy',      icon: BookOpen },
+  { href: '/stats',    label: 'Stats',    icon: BarChart2 },
+  { href: '/review',   label: 'Revisión', icon: Brain },
+  { href: '/settings', label: 'Ajustes',  icon: Settings },
 ]
 
 export function MobileBottomNav() {

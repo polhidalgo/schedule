@@ -45,57 +45,69 @@ export async function GET(request: NextRequest) {
   const dailyLogs = logsResult.data ?? []
   const sleepLogs = sleepResult.data ?? []
 
-  // Attendance by session type
+  // Helper: resolve session_log from Supabase join (returns array even for 1-1)
+  function getLog(s: { session_log: unknown }) {
+    const log = Array.isArray(s.session_log) ? s.session_log[0] : s.session_log
+    return log as { attended: boolean; rpe?: number; fatigue?: number; technical_quality?: number } | null | undefined
+  }
+
+  // A session is "attended" ONLY if a log exists with attended !== false.
+  // Sessions without a log have not been registered → not counted.
+  function wasAttended(s: { session_log: unknown }): boolean {
+    const log = getLog(s)
+    return !!log && log.attended !== false
+  }
+
+  // Attendance by session type — total = planned, attended = explicitly logged
   const attendanceByType: Record<string, { total: number; attended: number }> = {}
   for (const s of sessions) {
     if (!attendanceByType[s.session_type]) {
       attendanceByType[s.session_type] = { total: 0, attended: 0 }
     }
     attendanceByType[s.session_type].total++
-    const log = Array.isArray(s.session_log) ? s.session_log[0] : s.session_log
-    if (!log || log.attended !== false) {
+    if (wasAttended(s)) {
       attendanceByType[s.session_type].attended++
     }
   }
 
-  // RPE by session type
+  // RPE by session type — only from logged sessions
   const rpeByType: Record<string, number[]> = {}
   for (const s of sessions) {
-    const log = Array.isArray(s.session_log) ? s.session_log[0] : s.session_log
+    const log = getLog(s)
     if (log?.rpe) {
       if (!rpeByType[s.session_type]) rpeByType[s.session_type] = []
       rpeByType[s.session_type].push(log.rpe)
     }
   }
 
-  // Fatigue by session type
+  // Fatigue by session type — only from logged sessions
   const fatigueByType: Record<string, number[]> = {}
   for (const s of sessions) {
-    const log = Array.isArray(s.session_log) ? s.session_log[0] : s.session_log
+    const log = getLog(s)
     if (log?.fatigue) {
       if (!fatigueByType[s.session_type]) fatigueByType[s.session_type] = []
       fatigueByType[s.session_type].push(log.fatigue)
     }
   }
 
-  // Sessions per day (for heatmap)
+  // Heatmap: only count days where sessions were actually attended
   const sessionsPerDay: Record<string, number> = {}
   for (const s of sessions) {
-    sessionsPerDay[s.date] = (sessionsPerDay[s.date] ?? 0) + 1
+    if (wasAttended(s)) {
+      sessionsPerDay[s.date] = (sessionsPerDay[s.date] ?? 0) + 1
+    }
   }
 
-  // Weight over time
+  // Weight and sleep
   const weightData = dailyLogs
     .filter(d => d.body_weight)
     .map(d => ({ date: d.date, weight: d.body_weight }))
 
-  // Sleep over time
   const sleepData = sleepLogs.map(s => ({
     date: s.date,
     hours: s.duration_hours,
   }))
 
-  // Daily wellness averages
   const wellnessData = dailyLogs.map(d => ({
     date: d.date,
     stress: d.stress_level,
@@ -106,27 +118,23 @@ export async function GET(request: NextRequest) {
   }))
 
   // Summary metrics
-  const trainedSessions = sessions.filter(s => {
-    const log = Array.isArray(s.session_log) ? s.session_log[0] : s.session_log
-    return !log || log.attended !== false
-  })
-  const totalAttendance = trainedSessions.length
-  const totalSessions = sessions.length
+  const totalSessions = sessions.length  // planned
+  const totalAttendance = sessions.filter(wasAttended).length  // logged as attended
   const attendanceRate = totalSessions > 0 ? Math.round((totalAttendance / totalSessions) * 100) : 0
 
   const allRpe = sessions
-    .map(s => {
-      const log = Array.isArray(s.session_log) ? s.session_log[0] : s.session_log
-      return log?.rpe
-    })
-    .filter(Boolean) as number[]
+    .map(s => getLog(s)?.rpe)
+    .filter((r): r is number => !!r)
   const avgRpe = allRpe.length > 0 ? allRpe.reduce((a, b) => a + b, 0) / allRpe.length : null
 
-  const totalHours = sessions.reduce((acc, s) => {
-    const [sh, sm] = s.start_time.split(':').map(Number)
-    const [eh, em] = s.end_time.split(':').map(Number)
-    return acc + (eh * 60 + em - (sh * 60 + sm)) / 60
-  }, 0)
+  // Total hours: only attended sessions
+  const totalHours = sessions
+    .filter(wasAttended)
+    .reduce((acc, s) => {
+      const [sh, sm] = s.start_time.split(':').map(Number)
+      const [eh, em] = s.end_time.split(':').map(Number)
+      return acc + (eh * 60 + em - (sh * 60 + sm)) / 60
+    }, 0)
 
   return NextResponse.json({
     summary: {

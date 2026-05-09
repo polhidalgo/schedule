@@ -36,7 +36,8 @@ export async function proxy(request: NextRequest) {
   const isProtected = pathname.startsWith('/week') ||
     pathname.startsWith('/logs') ||
     pathname.startsWith('/stats') ||
-    pathname.startsWith('/review')
+    pathname.startsWith('/review') ||
+    pathname.startsWith('/settings')
 
   if (!user && isProtected) {
     return NextResponse.redirect(new URL('/login', request.url))
