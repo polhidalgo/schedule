@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { SessionLogForm } from './SessionLogForm'
+import { SCSessionLogger } from '@/components/strength/SCSessionLogger'
 import { SESSION_TYPE_LABELS, TRAINING_SESSION_TYPES } from '@/lib/schedule/types'
 import type { Session } from '@/lib/schedule/types'
 import { formatTime, getSessionDurationMinutes, formatDuration, SESSION_COLORS } from '@/lib/schedule/utils'
 import { useDeleteSession } from '@/hooks/useSessions'
+import { useActiveSCProgram } from '@/hooks/useSC'
 import { toast } from 'sonner'
 import { Trash2, ClipboardList, Info, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -24,12 +26,15 @@ interface SessionModalProps {
 export function SessionModal({ session, onClose }: SessionModalProps) {
   const [tab, setTab] = useState<'info' | 'log'>('info')
   const deleteSession = useDeleteSession()
+  const { data: activeProgram } = useActiveSCProgram()
 
   if (!session) return null
 
   const colors = SESSION_COLORS[session.session_type]
   const duration = getSessionDurationMinutes(session.start_time, session.end_time)
   const isTraining = TRAINING_SESSION_TYPES.includes(session.session_type)
+  const isStrength = session.session_type === 'strength_training'
+  const useStrengthLogger = isStrength && !!activeProgram
   const dayName = format(parseISO(session.date), "EEEE d 'de' MMMM", { locale: es })
   const log = session.session_log
 
@@ -169,11 +174,19 @@ export function SessionModal({ session, onClose }: SessionModalProps) {
         )}
 
         {tab === 'log' && isTraining && (
-          <SessionLogForm
-            sessionId={session.id}
-            existingLog={log ?? null}
-            onSuccess={onClose}
-          />
+          useStrengthLogger && activeProgram ? (
+            <SCSessionLogger
+              session={session}
+              program={activeProgram}
+              onSuccess={onClose}
+            />
+          ) : (
+            <SessionLogForm
+              sessionId={session.id}
+              existingLog={log ?? null}
+              onSuccess={onClose}
+            />
+          )
         )}
       </DialogContent>
     </Dialog>

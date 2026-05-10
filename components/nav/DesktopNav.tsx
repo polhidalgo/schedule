@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 const navItems = [
   { href: '/week',     label: 'Semana',    icon: Calendar },
   { href: '/logs',     label: 'Registro',  icon: BookOpen },
+  { href: '/strength', label: 'Fuerza',    icon: Dumbbell },
   { href: '/stats',    label: 'Stats',     icon: BarChart2 },
   { href: '/review',   label: 'Revisión',  icon: Brain },
   { href: '/settings', label: 'Ajustes',   icon: Settings },

@@ -3,6 +3,20 @@ import { SESSION_TYPE_LABELS, DAY_NAMES_FULL } from '../schedule/types'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
+export interface SCSessionLogData {
+  week_number: number
+  session_number: number
+  attended: boolean
+  notes: string | null
+  set_logs: Array<{
+    exercise_name: string
+    set_number: number
+    weight_used: number | null
+    reps_completed: number | null
+    completed: boolean
+  }>
+}
+
 export interface WeekData {
   weekStart: string
   weekEnd: string
@@ -16,6 +30,12 @@ export interface WeekData {
     avgRpe: number | null
     attendanceRate: number | null
     totalSessions: number
+  }
+  scData?: {
+    programName: string
+    weekNumber: number
+    totalWeeks: number
+    sessionsLogged: SCSessionLogData[]
   }
 }
 
@@ -101,7 +121,23 @@ ${data.previousWeek ? `SEMANA ANTERIOR:
 - RPE promedio: ${data.previousWeek.avgRpe?.toFixed(1) ?? 'N/A'}
 - Asistencia: ${data.previousWeek.attendanceRate?.toFixed(0) ?? 'N/A'}%` : 'Primera semana registrada'}
 
+${data.scData ? buildSCBlock(data.scData) : ''}
 Proporciona tu análisis en formato JSON.`
 
   return { system, user }
+}
+
+function buildSCBlock(sc: NonNullable<WeekData['scData']>): string {
+  const sessionLines = sc.sessionsLogged.map(log => {
+    if (!log.attended) return `- Sesión ${log.session_number}: No asistió`
+    const setLines = log.set_logs
+      .filter(s => s.completed)
+      .map(s => `  · ${s.exercise_name}: ${s.weight_used ? `${s.weight_used}kg×` : ''}${s.reps_completed ?? '?'} reps`)
+      .join('\n')
+    return `- Sesión ${log.session_number}: Completada${setLines ? '\n' + setLines : ''}`
+  })
+
+  return `FUERZA S&C (${sc.programName} — Semana ${sc.weekNumber}/${sc.totalWeeks}):
+${sessionLines.join('\n') || 'Sin sesiones S&C registradas esta semana'}
+`
 }

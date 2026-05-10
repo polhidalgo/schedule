@@ -7,9 +7,13 @@ import { RPEFatigueChart } from '@/components/stats/RPEFatigueChart'
 import { SleepChart } from '@/components/stats/SleepChart'
 import { WeightChart } from '@/components/stats/WeightChart'
 import { CalendarHeatmap } from '@/components/stats/CalendarHeatmap'
+import { SCProgressChart } from '@/components/strength/SCProgressChart'
+import { SCVolumeChart } from '@/components/strength/SCVolumeChart'
+import { SCAdherenceKPIs } from '@/components/strength/SCAdherenceKPIs'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dumbbell, TrendingUp, Clock, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useActiveSCProgram, useSCStats } from '@/hooks/useSC'
 
 type Range = 'week' | 'month' | '3months'
 
@@ -51,9 +55,14 @@ function useStats(range: Range) {
   })
 }
 
+type StatsTab = 'training' | 'strength'
+
 export default function StatsPage() {
   const [range, setRange] = useState<Range>('month')
+  const [statsTab, setStatsTab] = useState<StatsTab>('training')
   const { data, isLoading } = useStats(range)
+  const { data: activeProgram } = useActiveSCProgram()
+  const { data: scStats, isLoading: scLoading } = useSCStats(activeProgram?.id ?? null)
 
   return (
     <div className="flex flex-col min-h-full">
@@ -78,7 +87,56 @@ export default function StatsPage() {
         </div>
       </div>
 
+      {/* Tab bar */}
+      <div className="flex border-b border-border/50 px-4 bg-card/50">
+        <button
+          onClick={() => setStatsTab('training')}
+          className={cn(
+            'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+            statsTab === 'training' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          Entrenamiento
+        </button>
+        {activeProgram && (
+          <button
+            onClick={() => setStatsTab('strength')}
+            className={cn(
+              'px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+              statsTab === 'strength' ? 'border-foreground text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Fuerza
+          </button>
+        )}
+      </div>
+
       <div className="flex-1 overflow-auto p-4 max-w-2xl mx-auto w-full space-y-4">
+      {/* ── Fuerza tab ── */}
+      {statsTab === 'strength' && activeProgram && (
+        <>
+          {scLoading ? (
+            <Skeleton className="h-48 w-full rounded-xl" />
+          ) : scStats ? (
+            <>
+              <ChartCard title="KPIs" subtitle={`${scStats.programName} · ${scStats.totalWeeks} semanas`}>
+                <SCAdherenceKPIs data={scStats} />
+              </ChartCard>
+              <ChartCard title="Progresión de peso" subtitle="Máximo levantado por semana (kg)">
+                <SCProgressChart data={scStats.weightProgression} />
+              </ChartCard>
+              <ChartCard title="Volumen semanal" subtitle="Tonelaje total (kg × reps)">
+                <SCVolumeChart data={scStats.weeklyVolume} />
+              </ChartCard>
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-8">Sin datos S&C</p>
+          )}
+        </>
+      )}
+
+      {/* ── Training tab ── */}
+      {statsTab === 'training' && (<>
         {/* Summary cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <SummaryCard
@@ -162,6 +220,7 @@ export default function StatsPage() {
             <WeightChart data={data?.weightData ?? []} />
           )}
         </ChartCard>
+      </>)}
       </div>
     </div>
   )
