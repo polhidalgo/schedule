@@ -30,6 +30,8 @@ export async function PATCH(
 }
 
 // DELETE /api/templates/[id]
+// Soft-deletes by setting is_active = false so that existing sessions that
+// reference this template via template_session_id are not orphaned.
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -42,7 +44,7 @@ export async function DELETE(
 
   const { error } = await supabase
     .from('template_sessions')
-    .delete()
+    .update({ is_active: false })
     .eq('id', id)
     .eq('user_id', user.id)
 
