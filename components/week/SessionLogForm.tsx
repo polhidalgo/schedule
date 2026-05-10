@@ -7,12 +7,12 @@ import { useUpsertSessionLog } from '@/hooks/useSessionLog'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Loader2 } from 'lucide-react'
+import { Loader2, CheckCircle2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import type { SessionLog } from '@/lib/schedule/types'
+import { cn } from '@/lib/utils'
 
 interface SessionLogFormProps {
   sessionId: string
@@ -75,22 +75,41 @@ export function SessionLogForm({ sessionId, existingLog, onSuccess }: SessionLog
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {/* Attended checkbox */}
-      <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-        <Controller
-          name="attended"
-          control={control}
-          render={({ field }) => (
-            <Checkbox
-              id="attended"
-              checked={field.value}
-              onCheckedChange={field.onChange}
-              className="data-[state=checked]:bg-primary"
-            />
-          )}
-        />
-        <Label htmlFor="attended" className="text-sm cursor-pointer">¿Asististe a esta sesión?</Label>
-      </div>
+      {/* Attended toggle chips */}
+      <Controller
+        name="attended"
+        control={control}
+        render={({ field }) => (
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => field.onChange(true)}
+              className={cn(
+                'flex items-center justify-center gap-2 py-2.5 px-3 rounded-[10px] border text-sm font-medium transition-all',
+                field.value
+                  ? 'bg-foreground text-background border-foreground'
+                  : 'border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground'
+              )}
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              Asistí
+            </button>
+            <button
+              type="button"
+              onClick={() => field.onChange(false)}
+              className={cn(
+                'flex items-center justify-center gap-2 py-2.5 px-3 rounded-[10px] border text-sm font-medium transition-all',
+                !field.value
+                  ? 'bg-warning text-white border-warning'
+                  : 'border-border text-muted-foreground hover:border-warning/40 hover:text-foreground'
+              )}
+            >
+              <XCircle className="w-4 h-4" />
+              No asistí
+            </button>
+          </div>
+        )}
+      />
 
       {attended && (
         <>

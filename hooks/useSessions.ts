@@ -72,6 +72,9 @@ export function useSwitchTimetable() {
       if (!res.ok) throw new Error('Error cambiando timetable')
       return res.json()
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sessions'] })
+      qc.invalidateQueries({ queryKey: ['week-meta'] })
+    },
   })
 }
