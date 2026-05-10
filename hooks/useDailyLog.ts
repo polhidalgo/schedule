@@ -29,7 +29,9 @@ export function useUpsertDailyLog() {
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ['daily-log', vars.date] })
-      qc.invalidateQueries({ queryKey: ['stats'] })
+      if (!vars.is_draft) {
+        qc.invalidateQueries({ queryKey: ['stats'] })
+      }
     },
   })
 }

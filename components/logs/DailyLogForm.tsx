@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Loader2, CheckCircle2 } from 'lucide-react'
+import { Loader2, CheckCircle2, Clock, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { MOOD_LABELS } from '@/lib/schedule/types'
 import type { MoodLevel } from '@/lib/schedule/types'
@@ -77,11 +77,11 @@ export function DailyLogForm({ date }: DailyLogFormProps) {
       : { date },
   })
 
-  async function onSubmit(data: DailyLogInput) {
+  async function onSubmit(data: DailyLogInput, isDraft: boolean) {
     try {
-      await upsert.mutateAsync(data)
-      toast.success('Registro diario guardado')
-      reset(data)
+      await upsert.mutateAsync({ ...data, is_draft: isDraft })
+      toast.success(isDraft ? 'Borrador guardado' : 'Registro guardado')
+      if (!isDraft) reset({ ...data })
     } catch {
       toast.error('Error al guardar el registro')
     }
@@ -100,12 +100,19 @@ export function DailyLogForm({ date }: DailyLogFormProps) {
   const moodOptions: MoodLevel[] = ['very_low', 'low', 'neutral', 'good', 'very_good']
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={e => e.preventDefault()} className="space-y-5">
       {existing && !isDirty && (
-        <div className="flex items-center gap-2 text-xs text-green-400 bg-green-400/10 border border-green-400/20 rounded-lg px-3 py-2">
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          Registro guardado para hoy
-        </div>
+        existing.is_draft ? (
+          <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
+            Borrador guardado · completa el registro cuando puedas
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-xs text-green-600 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+            Registro guardado para hoy
+          </div>
+        )
       )}
 
       <div className="space-y-4 p-4 rounded-xl bg-card border border-border/50">
@@ -231,10 +238,35 @@ export function DailyLogForm({ date }: DailyLogFormProps) {
         />
       </div>
 
-      <Button type="submit" className="w-full" disabled={upsert.isPending}>
-        {upsert.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-        {existing ? 'Actualizar Registro' : 'Guardar Registro del Día'}
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="flex-1 gap-1.5"
+          disabled={upsert.isPending}
+          onClick={handleSubmit(d => onSubmit(d, true))}
+        >
+          {upsert.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
+          Guardar borrador
+        </Button>
+        <Button
+          type="button"
+          className="flex-1 gap-1.5"
+          disabled={upsert.isPending}
+          onClick={handleSubmit(d => onSubmit(d, false))}
+        >
+          {upsert.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4" />
+          )}
+          {existing && !existing.is_draft ? 'Actualizar Registro' : 'Guardar Registro'}
+        </Button>
+      </div>
     </form>
   )
 }

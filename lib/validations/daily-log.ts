@@ -10,6 +10,7 @@ export const dailyLogSchema = z.object({
   body_weight: z.number().min(20).max(300).nullable().optional(),
   hydration_liters: z.number().min(0).max(20).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
+  is_draft: z.boolean().optional(),
 })
 
 export type DailyLogInput = z.infer<typeof dailyLogSchema>

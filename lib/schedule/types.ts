@@ -94,6 +94,7 @@ export interface DailyLog {
   body_weight: number | null     // kg
   hydration_liters: number | null
   notes: string | null
+  is_draft: boolean
   created_at: string
   updated_at: string
 }
