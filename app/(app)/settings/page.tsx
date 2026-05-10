@@ -223,13 +223,13 @@ function TemplateRow({
   const colors = SESSION_COLORS[session.session_type]
 
   return (
-    <div className={cn(
-      'flex items-center gap-3 p-2.5 rounded-lg border',
-      colors.bg, colors.border
-    )}>
+    <div
+      className="flex items-center gap-3 p-2.5 rounded-lg"
+      style={{ background: colors.softBg, border: `1px solid ${colors.dot}33`, borderLeft: `3px solid ${colors.dot}` }}
+    >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className={cn('text-xs font-semibold', colors.text)}>{session.title}</span>
+          <span className="text-xs font-semibold" style={{ color: colors.fg }}>{session.title}</span>
           <span className="text-[10px] text-muted-foreground">
             {DAY_NAMES_FULL[session.day_of_week]}
           </span>

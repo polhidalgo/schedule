@@ -11,7 +11,7 @@ import { parseISO } from 'date-fns'
 interface WeekGridProps {
   weekStart: string
   sessions: Session[]
-  activeDayIndex?: number  // for mobile single-day view
+  activeDayIndex?: number  // mobile single-day view
   mobileMode?: boolean
 }
 
@@ -33,13 +33,7 @@ export function WeekGrid({ weekStart, sessions, activeDayIndex, mobileMode = fal
 
   return (
     <>
-      <div
-        className={
-          mobileMode
-            ? 'block'
-            : 'grid grid-cols-7 gap-2'
-        }
-      >
+      <div className={mobileMode ? 'block' : 'grid grid-cols-7 gap-2.5'}>
         {daysToShow.map(dayIndex => {
           const date = weekDates[dayIndex]
           const dateStr = formatDateKey(date)

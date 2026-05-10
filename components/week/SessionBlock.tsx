@@ -1,11 +1,9 @@
 'use client'
 
 import { SESSION_COLORS } from '@/lib/schedule/utils'
-import { SESSION_TYPE_LABELS } from '@/lib/schedule/types'
 import type { Session } from '@/lib/schedule/types'
 import { formatTime, getSessionDurationMinutes, formatDuration } from '@/lib/schedule/utils'
 import { CheckCircle2, Circle, AlertCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 interface SessionBlockProps {
   session: Session
@@ -21,58 +19,135 @@ export function SessionBlock({ session, onClick, compact = false }: SessionBlock
   const hasLog = !!log
   const notAttended = log?.attended === false
   const isTraining = session.category === 'training'
+  const status = hasLog ? (log!.attended ? 'done' : 'skipped') : 'pending'
 
+  if (compact) {
+    return (
+      <button
+        onClick={onClick}
+        style={{
+          textAlign: 'left',
+          padding: '8px 10px',
+          borderRadius: 8,
+          width: '100%',
+          background: colors.softBg,
+          color: colors.fg,
+          border: `1px solid ${colors.dot}33`,
+          borderLeft: `3px solid ${colors.dot}`,
+          cursor: 'pointer',
+          transition: 'opacity 120ms',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4 }}>
+          <span
+            className="tnum"
+            style={{ fontSize: 11, fontWeight: 600, opacity: 0.85 }}
+          >
+            {formatTime(session.start_time)}
+          </span>
+          {status === 'done' && <CheckCircle2 style={{ width: 12, height: 12, color: '#16a34a', flexShrink: 0 }} />}
+          {status === 'skipped' && <AlertCircle style={{ width: 12, height: 12, color: '#d97706', flexShrink: 0 }} />}
+        </div>
+        <p style={{ margin: '2px 0 0', fontSize: 12, fontWeight: 600, color: '#0a0a0a' }}>
+          {session.title}
+        </p>
+      </button>
+    )
+  }
+
+  // Mobile — SessionCardLarge style
   return (
     <button
       onClick={onClick}
-      className={cn(
-        'w-full text-left rounded-lg border p-2 transition-all hover:opacity-90 hover:scale-[1.01] active:scale-[0.99]',
-        colors.bg,
-        colors.border,
-        compact ? 'py-1.5' : 'py-2'
-      )}
+      style={{
+        width: '100%',
+        textAlign: 'left',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        padding: '14px',
+        background: '#ffffff',
+        border: '1px solid #e6e6e7',
+        borderLeft: `3px solid ${colors.dot}`,
+        borderRadius: 12,
+        cursor: 'pointer',
+        transition: 'background 120ms',
+      }}
     >
-      <div className="flex items-start justify-between gap-1">
-        <div className="min-w-0 flex-1">
-          <p className={cn('font-medium truncate', colors.text, compact ? 'text-xs' : 'text-xs')}>
-            {session.title}
-          </p>
-          {!compact && (
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {formatTime(session.start_time)} · {formatDuration(duration)}
-            </p>
-          )}
-          {compact && (
-            <p className="text-[10px] text-muted-foreground">
-              {formatTime(session.start_time)}
-            </p>
-          )}
-        </div>
-
-        {isTraining && (
-          <div className="shrink-0 mt-0.5">
-            {notAttended ? (
-              <AlertCircle className="w-3.5 h-3.5 text-yellow-500" />
-            ) : hasLog ? (
-              <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
-            ) : (
-              <Circle className="w-3.5 h-3.5 text-muted-foreground/40" />
-            )}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 15, fontWeight: 600, color: '#0a0a0a' }}>
+              {session.title}
+            </span>
+            <span style={{
+              background: colors.softBg,
+              color: colors.fg,
+              fontSize: 10,
+              fontWeight: 500,
+              padding: '2px 6px',
+              borderRadius: 6,
+              flexShrink: 0,
+            }}>
+              {isTraining ? 'Training' : 'Evento'}
+            </span>
           </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 4, fontSize: 13, color: '#6b7280' }}>
+            <span className="tnum">
+              {formatTime(session.start_time)}–{formatTime(session.end_time)}
+            </span>
+            <span>·</span>
+            <span>{formatDuration(duration)}</span>
+          </div>
+        </div>
+        {status === 'done' && (
+          <CheckCircle2 style={{ width: 22, height: 22, color: '#16a34a', flexShrink: 0, marginTop: 1 }} />
+        )}
+        {status === 'skipped' && (
+          <AlertCircle style={{ width: 22, height: 22, color: '#d97706', flexShrink: 0, marginTop: 1 }} />
+        )}
+        {status === 'pending' && isTraining && (
+          <Circle style={{ width: 22, height: 22, color: '#9ca3af', flexShrink: 0, marginTop: 1 }} />
         )}
       </div>
 
-      {!compact && hasLog && log?.rpe && (
-        <div className="mt-1.5 flex gap-2">
-          <span className="text-[10px] bg-black/20 rounded px-1 py-0.5 text-muted-foreground">
-            RPE {log.rpe}
-          </span>
-          {log.fatigue && (
-            <span className="text-[10px] bg-black/20 rounded px-1 py-0.5 text-muted-foreground">
-              F {log.fatigue}
+      {hasLog && !notAttended && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {log!.rpe != null && (
+            <span style={{ background: '#f4f4f5', color: '#0a0a0a', fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 6 }}>
+              RPE <strong className="tnum">{log!.rpe}</strong>
+            </span>
+          )}
+          {log!.fatigue != null && (
+            <span style={{ background: '#f4f4f5', color: '#0a0a0a', fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 6 }}>
+              Fatiga <strong className="tnum">{log!.fatigue}</strong>
+            </span>
+          )}
+          {log!.technical_quality != null && (
+            <span style={{ background: '#f4f4f5', color: '#0a0a0a', fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 6 }}>
+              Técnica <strong className="tnum">{log!.technical_quality}</strong>
+            </span>
+          )}
+          {log!.intensity != null && (
+            <span style={{ background: '#f4f4f5', color: '#0a0a0a', fontSize: 11, fontWeight: 500, padding: '3px 8px', borderRadius: 6 }}>
+              {log!.intensity === 'low' ? 'Baja' : log!.intensity === 'medium' ? 'Media' : 'Alta'}
             </span>
           )}
         </div>
+      )}
+
+      {hasLog && notAttended && (
+        <span style={{
+          background: '#fef3c7',
+          color: '#d97706',
+          fontSize: 11,
+          fontWeight: 500,
+          padding: '3px 8px',
+          borderRadius: 6,
+          alignSelf: 'flex-start',
+        }}>
+          No asististe
+        </span>
       )}
     </button>
   )

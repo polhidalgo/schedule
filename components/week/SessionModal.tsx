@@ -50,19 +50,23 @@ export function SessionModal({ session, onClose }: SessionModalProps) {
         <DialogHeader>
           <div className="flex items-start justify-between gap-2">
             <div>
-              <DialogTitle className={cn('text-base', colors.text)}>{session.title}</DialogTitle>
+              <DialogTitle className="text-base" style={{ color: colors.fg }}>{session.title}</DialogTitle>
               <p className="text-sm text-muted-foreground mt-0.5 capitalize">{dayName}</p>
             </div>
             <Badge
               variant="outline"
-              className={cn('shrink-0 text-[10px]', colors.border, colors.text)}
+              className="shrink-0 text-[10px]"
+              style={{ borderColor: colors.dot, color: colors.fg }}
             >
               {session.category === 'training' ? 'Entrenamiento' : 'Evento'}
             </Badge>
           </div>
         </DialogHeader>
 
-        <div className={cn('flex items-center gap-3 p-3 rounded-lg border', colors.bg, colors.border)}>
+        <div
+          className="flex items-center gap-3 p-3 rounded-lg"
+          style={{ background: colors.softBg, border: `1px solid ${colors.dot}33`, borderLeft: `3px solid ${colors.dot}` }}
+        >
           <div className="text-sm">
             <span className="font-medium">{formatTime(session.start_time)}</span>
             <span className="text-muted-foreground mx-1">→</span>

@@ -1,26 +1,52 @@
+/* Drop-in replacement for app/globals.css
+   Light, near-monochrome (Linear/Vercel-style) palette with color-coded session types.
+   Compatible with Tailwind v4 (@theme inline). */
+
 @import "tailwindcss";
 
 :root {
-  --background: 222 47% 8%;
-  --foreground: 213 31% 91%;
-  --card: 222 47% 11%;
-  --card-foreground: 213 31% 91%;
-  --popover: 222 47% 11%;
-  --popover-foreground: 213 31% 91%;
-  --primary: 217 91% 60%;
-  --primary-foreground: 222 47% 8%;
-  --secondary: 222 47% 15%;
-  --secondary-foreground: 213 31% 91%;
-  --muted: 222 47% 14%;
-  --muted-foreground: 215 20% 55%;
-  --accent: 222 47% 17%;
-  --accent-foreground: 213 31% 91%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 213 31% 91%;
-  --border: 222 47% 18%;
-  --input: 222 47% 18%;
-  --ring: 217 91% 60%;
-  --radius: 0.75rem;
+  /* Surfaces */
+  --background: 0 0% 100%;          /* #ffffff */
+  --foreground: 0 0% 4%;            /* #0a0a0a */
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 4%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 4%;
+  --muted: 240 5% 96%;              /* #f4f4f5 */
+  --muted-foreground: 220 9% 46%;   /* #6b7280 */
+  --accent: 240 5% 96%;
+  --accent-foreground: 0 0% 4%;
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 0 0% 4%;
+
+  /* Borders + interactive */
+  --border: 240 6% 90%;             /* #e6e6e7 */
+  --input: 240 6% 90%;
+  --ring: 0 0% 4%;
+
+  /* Brand / accent */
+  --primary: 217 91% 53%;           /* #2563eb */
+  --primary-foreground: 0 0% 100%;
+
+  /* Functional */
+  --success: 142 71% 36%;           /* #16a34a */
+  --warning: 32 95% 44%;            /* #d97706 */
+  --destructive: 0 73% 50%;         /* #dc2626 */
+  --destructive-foreground: 0 0% 100%;
+
+  --radius: 0.625rem;
+
+  /* Session-type color tokens (use directly, not via Tailwind shade) */
+  --sess-bjj: #2563eb;            --sess-bjj-soft: #eff4ff;
+  --sess-grappling: #7c3aed;      --sess-grappling-soft: #f5f0ff;
+  --sess-open-mat: #0891b2;       --sess-open-mat-soft: #ecfeff;
+  --sess-judo: #4f46e5;           --sess-judo-soft: #eef0ff;
+  --sess-wrestling: #6d28d9;      --sess-wrestling-soft: #f3edff;
+  --sess-positional: #0d9488;     --sess-positional-soft: #ecfdf7;
+  --sess-strength: #ea580c;       --sess-strength-soft: #fef2eb;
+  --sess-conditioning: #dc2626;   --sess-conditioning-soft: #fef2f2;
+  --sess-event: #71717a;          --sess-event-soft: #f4f4f5;
+  --sess-medical: #16a34a;        --sess-medical-soft: #ecfdf5;
 }
 
 @theme inline {
@@ -43,40 +69,28 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-* {
-  border-color: hsl(var(--border));
-}
-
+* { border-color: hsl(var(--border)); }
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv02','cv03','cv04','cv11';
 }
+.tnum { font-variant-numeric: tabular-nums; }
 
 /* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
 
-/* Range input (slider) custom styles */
-input[type='range'] {
-  accent-color: hsl(var(--primary));
-}
+input[type='range'] { accent-color: hsl(var(--primary)); }

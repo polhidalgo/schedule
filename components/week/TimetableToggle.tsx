@@ -4,6 +4,7 @@ import type { TimetableType } from '@/lib/schedule/types'
 import { useSwitchTimetable } from '@/hooks/useSessions'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface TimetableToggleProps {
   weekStart: string
@@ -25,24 +26,26 @@ export function TimetableToggle({ weekStart, activeTimetable }: TimetableToggleP
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-muted-foreground">Timetable:</span>
-      <div className="flex rounded-lg border border-border/50 overflow-hidden">
+      <div className="flex rounded-[10px] border border-border overflow-hidden bg-muted p-0.5 gap-0.5">
         {(['A', 'B'] as TimetableType[]).map(t => (
           <button
             key={t}
             onClick={() => handleSwitch(t)}
             disabled={switchMutation.isPending}
-            className={`px-3 py-1.5 text-xs font-semibold transition-colors ${
+            className={cn(
+              'px-3 py-1 text-xs font-semibold rounded-[8px] transition-all',
               activeTimetable === t
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-            }`}
+                ? 'bg-foreground text-background shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
           >
             {t}
           </button>
         ))}
       </div>
-      {switchMutation.isPending && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
+      {switchMutation.isPending && (
+        <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+      )}
     </div>
   )
 }
