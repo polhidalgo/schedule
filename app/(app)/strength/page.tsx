@@ -155,8 +155,8 @@ export default function StrengthPage() {
 
       {/* Create / Edit / Import Sheet */}
       <Sheet open={sheetMode !== null} onOpenChange={open => { if (!open) { setSheetMode(null); setEditingId(null); setImportData(null) } }}>
-        <SheetContent side="bottom" className="h-[90dvh] p-0 flex flex-col rounded-t-2xl">
-          <SheetHeader className="px-4 pt-4 pb-0">
+        <SheetContent side="bottom" className="h-[90dvh] max-h-[90dvh] gap-0 p-0 flex flex-col overflow-hidden rounded-t-2xl">
+          <SheetHeader className="shrink-0 px-4 pt-4 pb-2 border-b border-border/60">
             <SheetTitle>
               {sheetMode === 'edit' ? 'Editar programa' : sheetMode === 'import' ? 'Importar programa' : 'Nuevo programa'}
             </SheetTitle>

@@ -6,7 +6,13 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { ChevronRight, ChevronLeft, Check, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { scProgramSchema, type SCProgramInput } from '@/lib/validations/sc'
+import {
+  normalizeScProgramMeta,
+  scProgramMetaSchema,
+  scProgramSchema,
+  type SCProgramInput,
+  type SCProgramMetaFormValues,
+} from '@/lib/validations/sc'
 import { SCWeekEditor } from './SCWeekEditor'
 import { useCreateSCProgram, useUpdateSCProgram } from '@/hooks/useSC'
 import type { SCProgramFull } from '@/lib/sc/types'
@@ -32,6 +38,17 @@ function buildDefaultWeeks(totalWeeks: number, daysPerWeek: number): SCProgramIn
       exercises: [],
     })),
   }))
+}
+
+function programToMetaFields(p: SCProgramFull): SCProgramMetaFormValues {
+  const full = programToFormData(p)
+  return {
+    name: full.name,
+    total_weeks: full.total_weeks,
+    days_per_week: full.days_per_week,
+    start_date: full.start_date ?? '',
+    notes: full.notes ?? undefined,
+  }
 }
 
 function programToFormData(p: SCProgramFull): SCProgramInput {
@@ -86,19 +103,24 @@ export function SCProgramForm({ existing, initialData, onSuccess, onCancel }: SC
     handleSubmit,
     watch,
     formState: { errors },
-  } = useForm<SCProgramInput>({
-    resolver: zodResolver(scProgramSchema),
+  } = useForm<SCProgramMetaFormValues>({
+    resolver: zodResolver(scProgramMetaSchema),
     defaultValues: existing
-      ? programToFormData(existing)
+      ? programToMetaFields(existing)
       : initialData
-        ? { ...initialData.program, weeks: [] }
+        ? {
+            name: initialData.program.name,
+            total_weeks: initialData.program.total_weeks,
+            days_per_week: initialData.program.days_per_week,
+            start_date: initialData.program.start_date ?? '',
+            notes: initialData.program.notes ?? undefined,
+          }
         : {
             name: '',
             total_weeks: 8,
             days_per_week: 2,
-            start_date: null,
-            notes: null,
-            weeks: [],
+            start_date: '',
+            notes: undefined,
           },
   })
 
@@ -142,14 +164,32 @@ export function SCProgramForm({ existing, initialData, onSuccess, onCancel }: SC
     setStep(s => Math.max(s - 1, 0))
   }
 
-  async function onSubmit(data: SCProgramInput) {
-    const payload = { ...data, weeks }
+  function toastFirstMetaError(errors: import('react-hook-form').FieldErrors<SCProgramMetaFormValues>) {
+    for (const key of Object.keys(errors) as (keyof SCProgramMetaFormValues)[]) {
+      const err = errors[key]
+      if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string') {
+        toast.error(err.message)
+        return
+      }
+    }
+    toast.error('Revisa los datos del programa (paso 1).')
+  }
+
+  async function onSubmit(data: SCProgramMetaFormValues) {
+    const payload: SCProgramInput = { ...normalizeScProgramMeta(data), weeks }
+    const parsed = scProgramSchema.safeParse(payload)
+    if (!parsed.success) {
+      const issue = parsed.error.issues[0]
+      const path = issue.path.join('.') || 'datos'
+      toast.error(`${path}: ${issue.message}`)
+      return
+    }
     try {
       if (isEdit) {
-        await updateProgram.mutateAsync(payload)
+        await updateProgram.mutateAsync(parsed.data)
         toast.success('Programa actualizado')
       } else {
-        await createProgram.mutateAsync(payload)
+        await createProgram.mutateAsync(parsed.data)
         toast.success('Programa creado')
       }
       onSuccess?.()
@@ -161,9 +201,12 @@ export function SCProgramForm({ existing, initialData, onSuccess, onCancel }: SC
   const isBusy = createProgram.isPending || updateProgram.isPending
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
+    <form
+      onSubmit={handleSubmit(onSubmit, toastFirstMetaError)}
+      className="flex flex-col flex-1 min-h-0"
+    >
       {/* Step indicators */}
-      <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+      <div className="flex shrink-0 items-center gap-2 px-4 pt-4 pb-2">
         {STEPS.map((label, i) => (
           <div key={i} className="flex items-center gap-2 min-w-0">
             <div className={cn(
@@ -180,7 +223,7 @@ export function SCProgramForm({ existing, initialData, onSuccess, onCancel }: SC
         ))}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 space-y-4 touch-pan-y">
         {/* Step 1: Info */}
         {step === 0 && (
           <div className="space-y-4">
@@ -288,7 +331,7 @@ export function SCProgramForm({ existing, initialData, onSuccess, onCancel }: SC
       </div>
 
       {/* Footer navigation */}
-      <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-card">
+      <div className="flex shrink-0 items-center justify-between px-4 py-3 border-t border-border bg-card">
         <button
           type="button"
           onClick={step === 0 ? onCancel : goPrev}

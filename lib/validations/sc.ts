@@ -5,9 +5,9 @@ export const scProgramExerciseSchema = z.object({
   sets: z.number().int().min(1).max(20),
   reps_target: z.string().min(1).max(30),
   weight_target: z.number().min(0).max(1000).nullable().optional(),
-  rpe_target: z.string().max(10).nullable().optional(),
+  rpe_target: z.string().max(20).nullable().optional(),
   sort_order: z.number().int().min(0).default(0),
-  notes: z.string().max(500).nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
 })
 
 export const scSessionSchema = z.object({
@@ -23,12 +23,54 @@ export const scWeekSchema = z.object({
   sessions: z.array(scSessionSchema),
 })
 
-export const scProgramSchema = z.object({
+/**
+ * Paso 1 del wizard (`react-hook-form`). Fecha/notas sin transform para que el Resolver no rompa tipos.
+ * Vacío → se normaliza a `null` en `normalizeScProgramMeta` al guardar.
+ */
+export const scProgramMetaSchema = z.object({
+  name: z.string().min(1).max(100),
+  total_weeks: z
+    .number({ error: 'Indica número de semanas válido.' })
+    .int()
+    .min(1)
+    .max(52)
+    .refine(Number.isFinite, 'Indica número de semanas válido.'),
+  days_per_week: z
+    .number({ error: 'Indica sesiones por semana.' })
+    .int()
+    .min(1)
+    .max(7)
+    .refine(Number.isFinite, 'Indica sesiones por semana.'),
+  start_date: z
+    .union([z.literal(''), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)])
+    .optional(),
+  notes: z.string().max(1000).optional(),
+})
+
+export type SCProgramMetaFormValues = z.infer<typeof scProgramMetaSchema>
+
+const scProgramPayloadCore = z.object({
   name: z.string().min(1).max(100),
   total_weeks: z.number().int().min(1).max(52),
   days_per_week: z.number().int().min(1).max(7),
-  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-  notes: z.string().max(1000).nullable().optional(),
+  start_date: z.union([z.null(), z.string().regex(/^\d{4}-\d{2}-\d{2}$/)]),
+  notes: z.union([z.null(), z.string().max(1000)]),
+})
+
+export function normalizeScProgramMeta(
+  meta: SCProgramMetaFormValues
+): z.infer<typeof scProgramPayloadCore> {
+  return {
+    name: meta.name,
+    total_weeks: meta.total_weeks,
+    days_per_week: meta.days_per_week,
+    start_date: meta.start_date && meta.start_date !== '' ? meta.start_date : null,
+    notes: meta.notes?.trim() ? meta.notes.trim() : null,
+  }
+}
+
+/** Cuerpo completo válido para API y mutaciones (incl. semanas anidadas). */
+export const scProgramSchema = scProgramPayloadCore.extend({
   weeks: z.array(scWeekSchema),
 })
 
