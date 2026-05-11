@@ -13,9 +13,11 @@ import {
 } from '@/hooks/useSC'
 import { SCActiveCard } from '@/components/strength/SCActiveCard'
 import { SCProgramForm } from '@/components/strength/SCProgramForm'
+import { SCImportButton } from '@/components/strength/SCImportButton'
 import type { SCProgram } from '@/lib/sc/types'
+import type { SCImportResult } from '@/lib/sc/import'
 
-type SheetMode = 'create' | 'edit'
+type SheetMode = 'create' | 'edit' | 'import'
 
 export default function StrengthPage() {
   const { data: programs = [], isLoading } = useSCPrograms()
@@ -26,6 +28,7 @@ export default function StrengthPage() {
 
   const [sheetMode, setSheetMode] = useState<SheetMode | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [importData, setImportData] = useState<SCImportResult | null>(null)
   const { data: editingProgram } = useSCProgram(editingId)
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
@@ -69,13 +72,21 @@ export default function StrengthPage() {
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card sticky top-0 z-10">
         <h1 className="font-semibold">Fuerza & Acondicionamiento</h1>
-        <button
-          onClick={() => setSheetMode('create')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Nuevo
-        </button>
+        <div className="flex items-center gap-2">
+          <SCImportButton
+            onImport={result => {
+              setImportData(result)
+              setSheetMode('import')
+            }}
+          />
+          <button
+            onClick={() => setSheetMode('create')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Nuevo
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -142,16 +153,25 @@ export default function StrengthPage() {
         )}
       </div>
 
-      {/* Create / Edit Sheet */}
-      <Sheet open={sheetMode !== null} onOpenChange={open => { if (!open) { setSheetMode(null); setEditingId(null) } }}>
+      {/* Create / Edit / Import Sheet */}
+      <Sheet open={sheetMode !== null} onOpenChange={open => { if (!open) { setSheetMode(null); setEditingId(null); setImportData(null) } }}>
         <SheetContent side="bottom" className="h-[90dvh] p-0 flex flex-col rounded-t-2xl">
           <SheetHeader className="px-4 pt-4 pb-0">
-            <SheetTitle>{sheetMode === 'edit' ? 'Editar programa' : 'Nuevo programa'}</SheetTitle>
+            <SheetTitle>
+              {sheetMode === 'edit' ? 'Editar programa' : sheetMode === 'import' ? 'Importar programa' : 'Nuevo programa'}
+            </SheetTitle>
           </SheetHeader>
           {sheetMode === 'create' && (
             <SCProgramForm
               onSuccess={() => setSheetMode(null)}
               onCancel={() => setSheetMode(null)}
+            />
+          )}
+          {sheetMode === 'import' && importData && (
+            <SCProgramForm
+              initialData={importData}
+              onSuccess={() => { setSheetMode(null); setImportData(null) }}
+              onCancel={() => { setSheetMode(null); setImportData(null) }}
             />
           )}
           {sheetMode === 'edit' && editingProgram && (

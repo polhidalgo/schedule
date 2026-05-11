@@ -10,11 +10,13 @@ import { scProgramSchema, type SCProgramInput } from '@/lib/validations/sc'
 import { SCWeekEditor } from './SCWeekEditor'
 import { useCreateSCProgram, useUpdateSCProgram } from '@/hooks/useSC'
 import type { SCProgramFull } from '@/lib/sc/types'
+import type { SCImportResult } from '@/lib/sc/import'
 
 const STEPS = ['Datos generales', 'Configurar semanas', 'Ejercicios por sesión']
 
 interface SCProgramFormProps {
   existing?: SCProgramFull
+  initialData?: SCImportResult
   onSuccess?: () => void
   onCancel?: () => void
 }
@@ -67,11 +69,13 @@ function programToFormData(p: SCProgramFull): SCProgramInput {
   }
 }
 
-export function SCProgramForm({ existing, onSuccess, onCancel }: SCProgramFormProps) {
+export function SCProgramForm({ existing, initialData, onSuccess, onCancel }: SCProgramFormProps) {
   const [step, setStep] = useState(0)
-  const [weeks, setWeeks] = useState<SCProgramInput['weeks']>(
-    existing ? programToFormData(existing).weeks : []
-  )
+  const [weeks, setWeeks] = useState<SCProgramInput['weeks']>(() => {
+    if (existing) return programToFormData(existing).weeks
+    if (initialData) return initialData.weeks
+    return []
+  })
 
   const isEdit = !!existing
   const createProgram = useCreateSCProgram()
@@ -84,14 +88,18 @@ export function SCProgramForm({ existing, onSuccess, onCancel }: SCProgramFormPr
     formState: { errors },
   } = useForm<SCProgramInput>({
     resolver: zodResolver(scProgramSchema),
-    defaultValues: existing ? programToFormData(existing) : {
-      name: '',
-      total_weeks: 8,
-      days_per_week: 2,
-      start_date: null,
-      notes: null,
-      weeks: [],
-    },
+    defaultValues: existing
+      ? programToFormData(existing)
+      : initialData
+        ? { ...initialData.program, weeks: [] }
+        : {
+            name: '',
+            total_weeks: 8,
+            days_per_week: 2,
+            start_date: null,
+            notes: null,
+            weeks: [],
+          },
   })
 
   const totalWeeks = watch('total_weeks') || 1
