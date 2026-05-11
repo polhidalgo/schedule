@@ -2,14 +2,17 @@
 
 import { useRef, useState } from 'react'
 import { FileSpreadsheet, Download, Loader2, AlertTriangle, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { generateTemplate, parseExcelFile, type SCImportResult, type SCImportWarning } from '@/lib/sc/import'
 import { useSCExercises } from '@/hooks/useSC'
 
 interface SCImportButtonProps {
   onImport: (result: SCImportResult) => void
+  /** Contenedor exterior (ej. full width en móvil) */
+  className?: string
 }
 
-export function SCImportButton({ onImport }: SCImportButtonProps) {
+export function SCImportButton({ onImport, className }: SCImportButtonProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,31 +71,34 @@ export function SCImportButton({ onImport }: SCImportButtonProps) {
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        {/* Import button */}
+    <div className={cn('flex min-w-0 flex-col gap-2', className)}>
+      <div className="flex min-w-0 flex-wrap gap-2">
+        {/* Import */}
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+          className="flex min-h-10 min-w-0 flex-1 shrink items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50 sm:flex-none sm:py-1.5"
         >
-          {loading
-            ? <Loader2 className="w-4 h-4 animate-spin" />
-            : <FileSpreadsheet className="w-4 h-4" />
-          }
-          Importar Excel
+          {loading ? (
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          ) : (
+            <FileSpreadsheet className="h-4 w-4 shrink-0" />
+          )}
+          <span className="truncate md:hidden">Importar</span>
+          <span className="hidden truncate md:inline">Importar Excel</span>
         </button>
 
-        {/* Download template */}
+        {/* Plantilla */}
         <button
           type="button"
           onClick={handleDownloadTemplate}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-sm text-muted-foreground hover:bg-accent transition-colors"
           title="Descargar plantilla Excel"
+          aria-label="Descargar plantilla Excel"
+          className="flex min-h-10 min-w-0 flex-1 shrink items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:bg-accent transition-colors sm:flex-none sm:py-1.5"
         >
-          <Download className="w-4 h-4" />
-          Plantilla
+          <Download className="h-4 w-4 shrink-0" />
+          <span className="truncate">Plantilla</span>
         </button>
       </div>
 

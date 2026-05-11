@@ -69,23 +69,32 @@ export default function StrengthPage() {
 
   return (
     <div className="flex flex-col min-h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card sticky top-0 z-10">
-        <h1 className="font-semibold">Fuerza & Acondicionamiento</h1>
-        <div className="flex items-center gap-2">
-          <SCImportButton
-            onImport={result => {
-              setImportData(result)
-              setSheetMode('import')
-            }}
-          />
-          <button
-            onClick={() => setSheetMode('create')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-foreground text-background text-sm font-medium hover:bg-foreground/90 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Nuevo
-          </button>
+      {/* Header: móvil en columna para que quepa título + acciones */}
+      <div className="sticky top-0 z-10 shrink-0 border-b border-border bg-card">
+        <div className="flex flex-col gap-3 px-4 py-3 md:flex-row md:items-start md:justify-between md:gap-4 lg:items-center">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base font-semibold leading-snug text-balance lg:text-lg">
+              Fuerza & Acondicionamiento
+            </h1>
+          </div>
+
+          <div className="flex w-full min-w-0 flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:justify-end">
+            <button
+              type="button"
+              onClick={() => setSheetMode('create')}
+              className="order-1 flex h-10 w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-foreground px-4 text-sm font-medium text-background transition-colors hover:bg-foreground/90 md:order-2 md:h-9 md:w-auto md:px-3 md:py-1.5"
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              Nuevo programa
+            </button>
+            <SCImportButton
+              className="order-2 w-full md:order-1 md:w-auto md:max-w-xl lg:max-w-none"
+              onImport={result => {
+                setImportData(result)
+                setSheetMode('import')
+              }}
+            />
+          </div>
         </div>
       </div>
 
