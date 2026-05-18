@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { scSessionLogSchema } from '@/lib/validations/sc'
+import { syncScSessionLogToCalendar } from '@/lib/sc/sync-calendar-session-log'
 
 // GET /api/sc/session-logs?program_id=...&week_number=...
 export async function GET(request: NextRequest) {
@@ -59,6 +60,16 @@ export async function POST(request: NextRequest) {
     }))
     const { error: setError } = await supabase.from('sc_set_logs').insert(setRows)
     if (setError) return NextResponse.json({ error: setError.message }, { status: 500 })
+  }
+
+  const { error: syncError } = await syncScSessionLogToCalendar(supabase, user.id, {
+    timetable_session_id: sessionData.timetable_session_id ?? null,
+    attended: sessionData.attended,
+    notes: sessionData.notes ?? null,
+  })
+  if (syncError) {
+    await supabase.from('sc_session_logs').delete().eq('id', sessionLog.id)
+    return NextResponse.json({ error: syncError.message }, { status: 500 })
   }
 
   return NextResponse.json(sessionLog, { status: 201 })

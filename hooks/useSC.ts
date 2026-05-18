@@ -180,6 +180,7 @@ export function useUpsertSCSessionLog() {
       qc.invalidateQueries({ queryKey: ['sc-session-logs', vars.program_id] })
       qc.invalidateQueries({ queryKey: ['sc-active'] })
       qc.invalidateQueries({ queryKey: ['sc-stats'] })
+      qc.invalidateQueries({ queryKey: ['sessions'] })
     },
   })
 }
