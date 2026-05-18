@@ -202,7 +202,9 @@ export function SCProgramForm({ existing, initialData, onSuccess, onCancel }: SC
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit, toastFirstMetaError)}
+      onSubmit={e => {
+        e.preventDefault()
+      }}
       className="flex flex-col flex-1 min-h-0"
     >
       {/* Step indicators */}
@@ -350,8 +352,9 @@ export function SCProgramForm({ existing, initialData, onSuccess, onCancel }: SC
           </button>
         ) : (
           <button
-            type="submit"
+            type="button"
             disabled={isBusy}
+            onClick={handleSubmit(onSubmit, toastFirstMetaError)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {isBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
