@@ -3,6 +3,22 @@ import { SESSION_TYPE_LABELS, DAY_NAMES_FULL } from '../schedule/types'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
+/** Supabase embed `session_logs(*)` suele devolver `SessionLog | SessionLog[]` — unificar forma. */
+function getEmbeddedSessionLog(
+  s: { session_log?: SessionLog | SessionLog[] | null }
+): SessionLog | null {
+  const raw = s.session_log
+  if (raw == null) return null
+  if (Array.isArray(raw)) return raw[0] ?? null
+  return raw
+}
+
+/** Misma idea que /api/stats: asistencia solo si hay log con attended !== false */
+function wasRecordedAttended(s: { session_log?: SessionLog | SessionLog[] | null }): boolean {
+  const log = getEmbeddedSessionLog(s)
+  return !!log && log.attended !== false
+}
+
 export interface SCSessionLogData {
   week_number: number
   session_number: number
@@ -23,7 +39,7 @@ export interface WeekData {
   activeTimetable: TimetableType
   switchedMidWeek: boolean
   previousTimetable?: TimetableType
-  sessions: (Session & { session_log?: SessionLog | null })[]
+  sessions: Array<Session & { session_log?: SessionLog | SessionLog[] | null }>
   dailyLogs: DailyLog[]
   sleepLogs: SleepLog[]
   previousWeek?: {
@@ -52,13 +68,13 @@ Tu respuesta debe ser un objeto JSON válido con exactamente estas claves:
 - patterns_detected (string, patrones detectados en los datos)`
 
   const trainingSessions = data.sessions.filter(s => !s.is_deleted && s.category === 'training')
-  const attendedSessions = trainingSessions.filter(s => s.session_log?.attended !== false)
+  const attendedSessions = trainingSessions.filter(wasRecordedAttended)
   const attendanceRate = trainingSessions.length > 0
     ? Math.round((attendedSessions.length / trainingSessions.length) * 100)
     : 0
 
   const sessionsText = trainingSessions.map(s => {
-    const log = s.session_log
+    const log = getEmbeddedSessionLog(s)
     const dayName = DAY_NAMES_FULL[parseISO(s.date).getDay() === 0 ? 6 : parseISO(s.date).getDay() - 1]
     if (!log) {
       return `- ${dayName} ${s.start_time.slice(0, 5)}: ${SESSION_TYPE_LABELS[s.session_type]} — Sin registro`
@@ -92,11 +108,13 @@ Tu respuesta debe ser un objeto JSON válido con exactamente estas claves:
     .map(s => `- ${s.date}: ${s.duration_hours?.toFixed(1)}h de sueño`)
     .join('\n')
 
-  const avgRpe = trainingSessions.length > 0
-    ? trainingSessions
-        .filter(s => s.session_log?.rpe)
-        .reduce((acc, s) => acc + (s.session_log?.rpe ?? 0), 0) /
-      (trainingSessions.filter(s => s.session_log?.rpe).length || 1)
+  const trainingWithRpe = trainingSessions.filter(s => {
+    const log = getEmbeddedSessionLog(s)
+    return !!(log?.rpe && log.rpe > 0)
+  })
+  const avgRpe = trainingWithRpe.length > 0
+    ? trainingWithRpe.reduce((acc, s) => acc + (getEmbeddedSessionLog(s)?.rpe ?? 0), 0) /
+      trainingWithRpe.length
     : null
 
   const user = `SEMANA: ${data.weekStart} al ${data.weekEnd}
