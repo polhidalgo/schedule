@@ -20,13 +20,16 @@ export function useSessions(weekStart: string) {
 export function useCreateSession() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (data: Partial<Session>) => {
+    mutationFn: async (data: Partial<Session> & { week_start?: string }) => {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
-      if (!res.ok) throw new Error('Error creando sesión')
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error ?? 'Error creando sesión')
+      }
       return res.json()
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sessions'] }),

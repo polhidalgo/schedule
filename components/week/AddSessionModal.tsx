@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { sessionSchema, type SessionInput } from '@/lib/validations/daily-log'
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { SESSION_TYPE_LABELS, TRAINING_SESSION_TYPES, EVENT_SESSION_TYPES } from '@/lib/schedule/types'
+import { SESSION_TYPE_LABELS, TRAINING_SESSION_TYPES, EVENT_SESSION_TYPES, type SessionType } from '@/lib/schedule/types'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
@@ -17,37 +18,51 @@ import { es } from 'date-fns/locale'
 
 interface AddSessionModalProps {
   date: string | null
+  weekStart: string
   onClose: () => void
 }
 
-export function AddSessionModal({ date, onClose }: AddSessionModalProps) {
+const FORM_DEFAULTS = {
+  start_time: '18:00',
+  end_time: '19:30',
+  session_type: 'bjj_fundamentals' as SessionType,
+  title: '',
+  category: 'training' as 'training' | 'event',
+}
+
+export function AddSessionModal({ date, weekStart, onClose }: AddSessionModalProps) {
   const createSession = useCreateSession()
 
-  const { register, control, handleSubmit, watch, formState: { errors } } = useForm<SessionInput>({
-    defaultValues: {
-      date: date ?? '',
-      start_time: '18:00',
-      end_time: '19:30',
-      session_type: 'bjj_fundamentals',
-      title: '',
-      category: 'training',
-    },
+  const { register, control, handleSubmit, watch, reset } = useForm({
+    defaultValues: FORM_DEFAULTS,
   })
+
+  // Reset form to defaults whenever the modal opens (date changes from null → string)
+  useEffect(() => {
+    if (date) {
+      reset(FORM_DEFAULTS)
+    }
+  }, [date, reset])
 
   const category = watch('category')
   const sessionType = watch('session_type')
 
-  async function onSubmit(data: SessionInput) {
+  async function onSubmit(data: typeof FORM_DEFAULTS) {
+    if (!date) return
     try {
       await createSession.mutateAsync({
-        ...data,
+        date,
+        week_start: weekStart,
         start_time: data.start_time + ':00',
         end_time: data.end_time + ':00',
+        session_type: data.session_type,
+        title: data.title.trim() || SESSION_TYPE_LABELS[data.session_type],
+        category: data.category,
       })
       toast.success('Sesión añadida')
       onClose()
-    } catch {
-      toast.error('Error al añadir la sesión')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al añadir la sesión')
     }
   }
 

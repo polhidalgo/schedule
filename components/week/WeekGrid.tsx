@@ -60,6 +60,7 @@ export function WeekGrid({ weekStart, sessions, activeDayIndex, mobileMode = fal
 
       <AddSessionModal
         date={addDate}
+        weekStart={weekStart}
         onClose={() => setAddDate(null)}
       />
     </>
